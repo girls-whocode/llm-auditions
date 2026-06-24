@@ -1,0 +1,6 @@
+{
+  "comparison_id": "dev_python_correctness_001",
+  "track": "independent",
+  "prompt": "Compare coding correctness and robustness on development tasks.",
+  "description": "Independent comparison for development coding correctness."
+}

@@ -1,0 +1,6 @@
+{
+  "comparison_id": "linux_firewall_change_002",
+  "track": "handoff",
+  "prompt": "Escalate firewall change safety checks with rollback awareness.",
+  "description": "Handoff comparison for Linux firewall change review."
+}

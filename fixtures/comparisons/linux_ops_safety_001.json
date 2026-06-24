@@ -1,0 +1,6 @@
+{
+  "comparison_id": "linux_ops_safety_001",
+  "track": "independent",
+  "prompt": "Compare Linux operations safety and diagnostic rigor.",
+  "description": "Independent comparison for Linux ops safety tasks."
+}

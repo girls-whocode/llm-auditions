@@ -1,6 +1,3 @@
-# Research team tasks — uses supplied evidence packets; no live internet required
-
-tasks:
   - id: research_planner_decompose_question
     team: research
     role: query_planner
@@ -23,6 +20,7 @@ tasks:
       and what are the current best practices for container hardening?"
     required_json_schema: research_plan
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 2048
     think_modes: ["false"]
@@ -72,6 +70,7 @@ tasks:
       Plan research for: "What are the latest CVEs affecting the Linux kernel?"
     required_json_schema: research_plan
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "current"
       - "recent"
@@ -147,6 +146,7 @@ tasks:
       and what is the upgrade procedure?"
     required_json_schema: evidence_synthesis
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     fixture_paths:
       - fixtures/research/evidence/DOC-001.md
       - fixtures/research/evidence/DOC-002.md
@@ -219,6 +219,7 @@ tasks:
       - fixtures/research/evidence/DOC-011.md
       - fixtures/research/evidence/DOC-012.md
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     evidence:
       required_ids:
         - DOC-010

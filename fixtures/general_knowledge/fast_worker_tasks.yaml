@@ -1,7 +1,3 @@
-# General Knowledge — fast worker tasks
-# Role: answer routine questions correctly; recognize escalation triggers; show restraint
-
-tasks:
   - id: gk_fast_capital_question
     team: general_knowledge
     role: fast_worker
@@ -16,6 +12,7 @@ tasks:
     expected_disposition: ANSWER
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 256
     think_modes: ["false"]
@@ -64,6 +61,7 @@ tasks:
     expected_disposition: ESCALATE_HEAVY
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 512
     think_modes: ["false"]
@@ -72,6 +70,7 @@ tasks:
     comparison_id: gk_philosophy_escalation_001
     comparison_track: handoff
     worker_class: fast
+    comparison_scenario_ref: fixtures/comparisons/gk_philosophy_escalation_001.json
     rubric_rules:
       - rule_id: philosophy_escalates_heavy
         description: Escalates the deep philosophical comparison to a heavy worker
@@ -116,6 +115,7 @@ tasks:
     expected_disposition: RESEARCH_REQUIRED
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 256
     think_modes: ["false"]
@@ -167,6 +167,7 @@ tasks:
     expected_disposition: ANSWER
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     forbidden_claims:
       - "failed his"
     temperature: 0
@@ -177,6 +178,7 @@ tasks:
     comparison_id: gk_reasoning_precision_002
     comparison_track: independent
     worker_class: fast
+    comparison_scenario_ref: fixtures/comparisons/gk_reasoning_precision_002.json
     rubric_rules:
       - rule_id: einstein_answer_disposition
         description: Uses ANSWER while correcting the premise
@@ -218,6 +220,7 @@ tasks:
     expected_disposition: ANSWER
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 256
     think_modes: ["false"]
@@ -265,6 +268,7 @@ tasks:
       What does ISO 99421 specify about quantum database transaction integrity?
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     forbidden_claims:
       - "ISO 99421"
       - "specifies"

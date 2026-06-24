@@ -1,6 +1,3 @@
-# Linux Infrastructure — escalation worker tasks
-
-tasks:
   - id: linux_escalation_kernel_tuning
     team: linux_infrastructure
     role: escalation
@@ -20,6 +17,7 @@ tasks:
     expected_disposition: ANSWER
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "measure"
       - "vm.dirty"
@@ -31,6 +29,7 @@ tasks:
     comparison_id: linux_ops_safety_001
     comparison_track: independent
     worker_class: heavy
+    comparison_scenario_ref: fixtures/comparisons/linux_ops_safety_001.json
     rubric_rules:
       - rule_id: kernel_tuning_mentions_vm_dirty
         description: Mentions vm.dirty parameters as relevant tuning candidates
@@ -74,6 +73,7 @@ tasks:
     expected_disposition: REVISE
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "rollback"
       - "remote"
@@ -85,6 +85,7 @@ tasks:
     comparison_id: linux_firewall_change_002
     comparison_track: handoff
     worker_class: heavy
+    comparison_scenario_ref: fixtures/comparisons/linux_firewall_change_002.json
     rubric_rules:
       - rule_id: firewall_review_revise
         description: Returns REVISE for the unsafe firewall reset guidance

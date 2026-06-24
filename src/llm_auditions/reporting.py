@@ -14,6 +14,49 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _float(v: Any, default: float = 0.0) -> float:
+    try:
+        return float(v)
+    except Exception:
+        return default
+
+
+def _enrich_result_timing(result: dict[str, Any]) -> dict[str, Any]:
+    response = result.get("response")
+    if not isinstance(response, dict):
+        return result
+    metrics = response.get("metrics")
+    if not isinstance(metrics, dict):
+        return result
+
+    load_duration_ns = _float(metrics.get("load_duration_ns", metrics.get("load_duration", 0.0)))
+    prompt_eval_duration_ns = _float(metrics.get("prompt_eval_duration_ns", metrics.get("prompt_eval_duration", 0.0)))
+    eval_duration_ns = _float(metrics.get("eval_duration_ns", metrics.get("eval_duration", 0.0)))
+    total_duration_ns = _float(metrics.get("total_duration_ns", metrics.get("total_duration", 0.0)))
+    wall_clock_seconds_local = _float(metrics.get("wall_clock_seconds_local", 0.0))
+    eval_count = _float(metrics.get("eval_count", 0.0))
+
+    load_seconds = load_duration_ns / 1e9 if load_duration_ns > 0 else _float(metrics.get("load_seconds", 0.0))
+    prompt_eval_seconds = prompt_eval_duration_ns / 1e9 if prompt_eval_duration_ns > 0 else _float(metrics.get("prompt_eval_seconds", 0.0))
+    generation_seconds = eval_duration_ns / 1e9 if eval_duration_ns > 0 else _float(metrics.get("generation_seconds", metrics.get("net_generation_seconds", 0.0)))
+    ollama_total_seconds = total_duration_ns / 1e9 if total_duration_ns > 0 else _float(metrics.get("ollama_total_seconds", 0.0))
+    wall_clock_seconds = wall_clock_seconds_local if wall_clock_seconds_local > 0 else _float(metrics.get("wall_clock_seconds", ollama_total_seconds))
+    overhead_seconds = max(0.0, wall_clock_seconds - ollama_total_seconds)
+    if eval_count > 0 and generation_seconds > 0:
+        generation_rate = eval_count / generation_seconds
+    else:
+        generation_rate = _float(metrics.get("generation_rate", 0.0))
+
+    metrics["load_seconds"] = round(load_seconds, 4)
+    metrics["prompt_eval_seconds"] = round(prompt_eval_seconds, 4)
+    metrics["generation_seconds"] = round(generation_seconds, 4)
+    metrics["ollama_total_seconds"] = round(ollama_total_seconds, 4)
+    metrics["wall_clock_seconds"] = round(wall_clock_seconds, 4)
+    metrics["overhead_seconds"] = round(overhead_seconds, 4)
+    metrics["generation_rate"] = round(generation_rate, 4)
+    return result
+
+
 def _load_events(run_dir: Path) -> list[dict[str, Any]]:
     path = run_dir / "events.jsonl"
     if not path.exists():
@@ -34,7 +77,7 @@ def _load_results(run_dir: Path) -> list[dict[str, Any]]:
     results = []
     for path in sorted(run_dir.rglob("*.result.json")):
         try:
-            results.append(json.loads(path.read_text(encoding="utf-8")))
+            results.append(_enrich_result_timing(json.loads(path.read_text(encoding="utf-8"))))
         except Exception as exc:
             logger.warning("Failed to load result %s: %s", path, exc)
     return results
@@ -178,6 +221,20 @@ def _build_summary(events: list[dict[str, Any]], results: list[dict[str, Any]], 
 
     deterministic_rows = [r for r in completed_results if r.get("task", {}).get("verification_classification") == "deterministic"]
     rubric_rows = [r for r in completed_results if r.get("task", {}).get("verification_classification") == "rubric_assisted"]
+    development_excluded = [
+        r
+        for r in completed_results
+        if r.get("task", {}).get("team") == "development"
+        and (
+            r.get("score_status") in ("human_required", "provisional")
+            or bool(r.get("human_review_required", False))
+            or bool(r.get("verifier_output", {}).get("policy_refusal", False))
+        )
+    ]
+    development_reasons: dict[str, int] = {}
+    for row in development_excluded:
+        reason = str(row.get("verifier_output", {}).get("reason") or "unknown")
+        development_reasons[reason] = development_reasons.get(reason, 0) + 1
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -206,6 +263,8 @@ def _build_summary(events: list[dict[str, Any]], results: list[dict[str, Any]], 
         "median_wall_clock_seconds": round(median(wall), 4) if wall else 0.0,
         "median_overhead_seconds": round(median(overhead), 4) if overhead else 0.0,
         "median_generation_rate": round(median(generation_rate), 4) if generation_rate else 0.0,
+        "development_excluded_count": len(development_excluded),
+        "development_excluded_reasons": development_reasons,
         "sample_size": len(definitive_results),
     }
 

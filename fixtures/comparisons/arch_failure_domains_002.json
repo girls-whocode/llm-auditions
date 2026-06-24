@@ -1,0 +1,6 @@
+{
+  "comparison_id": "arch_failure_domains_002",
+  "track": "handoff",
+  "prompt": "Analyze failure-domain design tradeoffs and escalation depth.",
+  "description": "Handoff comparison for architecture failure-domain scenarios."
+}

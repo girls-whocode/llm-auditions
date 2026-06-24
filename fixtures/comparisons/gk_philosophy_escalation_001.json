@@ -1,0 +1,6 @@
+{
+  "comparison_id": "gk_philosophy_escalation_001",
+  "track": "handoff",
+  "prompt": "Escalate complex general-knowledge analysis requiring deeper reasoning.",
+  "description": "Handoff comparison for general knowledge escalation quality."
+}

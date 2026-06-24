@@ -1,0 +1,6 @@
+{
+  "comparison_id": "sec_least_privilege_001",
+  "track": "independent",
+  "prompt": "Compare least-privilege and safe-default security recommendations.",
+  "description": "Independent comparison for security safe-default guidance."
+}

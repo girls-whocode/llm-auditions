@@ -1,0 +1,6 @@
+{
+  "comparison_id": "eng_perf_claims_001",
+  "track": "independent",
+  "prompt": "Assess engineering performance guidance while preventing overclaims.",
+  "description": "Independent comparison for engineering performance-claim restraint."
+}

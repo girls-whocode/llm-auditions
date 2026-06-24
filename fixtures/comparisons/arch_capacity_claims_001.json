@@ -1,0 +1,6 @@
+{
+  "comparison_id": "arch_capacity_claims_001",
+  "track": "independent",
+  "prompt": "Evaluate architecture response quality and avoid unsupported capacity guarantees.",
+  "description": "Independent fast/heavy comparison for architecture capacity claims."
+}

@@ -156,6 +156,8 @@ def validate_tasks(tasks: list[TaskDefinition]) -> list[str]:
                 errors.append(f"Task '{t.id}' comparison worker_class must be 'fast' or 'heavy'")
             if t.comparison_track not in ("independent", "handoff"):
                 errors.append(f"Task '{t.id}' comparison_track must be 'independent' or 'handoff'")
+            if not t.comparison_scenario_ref.strip():
+                errors.append(f"Task '{t.id}' comparison_scenario_ref is required when comparison_id is set")
 
         if t.verifier == "evidence":
             fixture_ids: set[str] = set()

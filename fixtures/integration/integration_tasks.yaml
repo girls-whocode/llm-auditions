@@ -1,6 +1,3 @@
-# Integration Review tasks — reviews multi-team outputs for conflicts
-
-tasks:
   - id: integ_primary_conflict_detection
     team: integration_review
     role: primary
@@ -30,6 +27,7 @@ tasks:
     expected_disposition: REVISE
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "contradiction"
       - "23%"
@@ -89,6 +87,7 @@ tasks:
     expected_disposition: REVISE
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "rollback"
       - "assumption"
@@ -156,6 +155,7 @@ tasks:
     expected_disposition: REJECT
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     fixture_paths:
       - fixtures/integration/evidence/POLICY-003.md
       - fixtures/integration/evidence/LOG-004.md

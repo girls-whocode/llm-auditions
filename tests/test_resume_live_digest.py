@@ -9,11 +9,12 @@ import pytest
 from llm_auditions.configuration import Configuration
 from llm_auditions.models import ModelInfo
 from llm_auditions.runner import AuditionRunner
+from llm_auditions.versioning import execution_source_hashes
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
 
-def _write_manifest(run: Path, model_digest: str = "sha256:abc", scoring_version: str = "1", verifier_version: str = "1") -> None:
+def _write_manifest(run: Path, model_digest: str = "sha256:abc", scoring_version: str = "2", verifier_version: str = "2") -> None:
     task_manifest = {"run_id": "resume-live-digest", "profile": "smoke", "requests": []}
     task_manifest_hash = hashlib.sha256(json.dumps(task_manifest, sort_keys=True).encode()).hexdigest()[:16]
     execution_plan_hash = hashlib.sha256(json.dumps(task_manifest["requests"], sort_keys=True).encode()).hexdigest()[:16]
@@ -21,11 +22,11 @@ def _write_manifest(run: Path, model_digest: str = "sha256:abc", scoring_version
         "run_id": "resume-live-digest",
         "created_at": "2026-01-01T00:00:00Z",
         "profile": "smoke",
-        "engine_version": "0.9.0",
-        "task_suite_version": "1",
+        "engine_version": "0.10.0",
+        "task_suite_version": "2",
         "scoring_version": scoring_version,
         "verifier_version": verifier_version,
-        "report_version": "1",
+        "report_version": "2",
         "ollama_version": "test",
         "ollama_base_url": "http://localhost:11434",
         "models": [],
@@ -44,6 +45,7 @@ def _write_manifest(run: Path, model_digest: str = "sha256:abc", scoring_version
         "config_hashes": {},
         "schema_hashes": {},
         "fixture_hashes": {},
+        "execution_source_hashes": execution_source_hashes(PROJECT_ROOT),
         "execution_plan_hash": execution_plan_hash,
         "git_commit": "unknown",
         "git_dirty": False,

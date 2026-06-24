@@ -1,0 +1,6 @@
+{
+  "comparison_id": "sec_incident_response_002",
+  "track": "handoff",
+  "prompt": "Escalate incident-response decisions with evidence and containment discipline.",
+  "description": "Handoff comparison for security incident-response tasks."
+}

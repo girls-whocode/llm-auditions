@@ -28,6 +28,14 @@ from llm_auditions.task_loader import (
     load_tasks_from_dir,
     validate_tasks,
 )
+from llm_auditions.versioning import (
+    ENGINE_VERSION,
+    REPORT_VERSION,
+    SCORING_VERSION,
+    TASK_SUITE_VERSION,
+    VERIFIER_VERSION,
+    execution_source_hashes,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -298,6 +306,20 @@ def _load_raw_task_entries(tasks_dir: Path) -> list[tuple[Path, dict[str, Any]]]
     return entries
 
 
+def _rubric_finalization_inventory(raw_entries: list[tuple[Path, dict[str, Any]]]) -> dict[str, dict[str, int]]:
+    inventory: dict[str, dict[str, int]] = {}
+    for _, item in raw_entries:
+        if item.get("verification_classification") != "rubric_assisted":
+            continue
+        key = f"{item.get('team', '')}.{item.get('role', '')}"
+        bucket = str(item.get("rubric_finalization", "missing") or "missing")
+        inventory.setdefault(key, {"deterministic": 0, "mixed": 0, "human_review": 0, "missing": 0})
+        if bucket not in inventory[key]:
+            bucket = "missing"
+        inventory[key][bucket] += 1
+    return inventory
+
+
 def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
     config.load()
     audit_policy = config.get_audit_policy()
@@ -324,7 +346,7 @@ def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
             findings["blocking"].append(f"{path}: task '{item.get('id', '?')}' has unknown fields {unknown}")
 
         if audit_policy.get("require_rubric_finalization_field", False) and item.get("verification_classification") == "rubric_assisted" and "rubric_finalization" not in item:
-            findings["warnings"].append(f"type=rubric_finalization_missing task={item.get('id', '?')} file={path}")
+            findings["blocking"].append(f"type=rubric_finalization_missing task={item.get('id', '?')} file={path}")
 
         if item.get("verification_classification") == "rubric_assisted" and item.get("rubric_finalization") == "deterministic":
             for rule in item.get("rubric_rules", []) or []:
@@ -343,6 +365,28 @@ def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
         comparison_id = item.get("comparison_id")
         comparison_track = item.get("comparison_track", "")
         if comparison_id:
+            scenario_ref = str(item.get("comparison_scenario_ref", "") or "")
+            if not scenario_ref:
+                findings["blocking"].append(
+                    f"type=comparison_scenario_missing_ref comparison_id={comparison_id} track={comparison_track} task={item.get('id', '?')}"
+                )
+            else:
+                scenario_path = PROJECT_ROOT / scenario_ref
+                if not scenario_path.exists():
+                    findings["blocking"].append(
+                        f"type=comparison_scenario_missing_fixture comparison_id={comparison_id} track={comparison_track} task={item.get('id', '?')} ref={scenario_ref}"
+                    )
+                else:
+                    try:
+                        scenario_payload = json.loads(scenario_path.read_text(encoding="utf-8"))
+                        if str(scenario_payload.get("comparison_id", "")) != str(comparison_id) or str(scenario_payload.get("track", "")) != str(comparison_track):
+                            findings["blocking"].append(
+                                f"type=comparison_scenario_fixture_mismatch comparison_id={comparison_id} track={comparison_track} task={item.get('id', '?')} ref={scenario_ref}"
+                            )
+                    except Exception:
+                        findings["blocking"].append(
+                            f"type=comparison_scenario_fixture_invalid_json comparison_id={comparison_id} track={comparison_track} task={item.get('id', '?')} ref={scenario_ref}"
+                        )
             comparison_groups.setdefault((comparison_id, comparison_track), []).append(item)
 
     for (comparison_id, comparison_track), items in comparison_groups.items():
@@ -351,8 +395,8 @@ def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
             findings["blocking"].append(f"type=comparison_missing_fast_partner comparison_id={comparison_id} track={comparison_track}")
         if audit_policy.get("require_comparison_fast_heavy_pairs", True) and "heavy" not in classes:
             findings["blocking"].append(f"type=comparison_missing_heavy_partner comparison_id={comparison_id} track={comparison_track}")
-        teams = {str(x.get("team", "")) for x in items}
-        if len(teams) > 1:
+        refs = {str(x.get("comparison_scenario_ref", "") or "") for x in items}
+        if len(refs) > 1:
             findings["blocking"].append(f"type=comparison_scenario_mismatch comparison_id={comparison_id} track={comparison_track}")
 
     # Audit invariant: optional rubric rules must not reduce base score when absent.
@@ -440,6 +484,17 @@ def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
     print(f"blocking_findings: {len(findings['blocking'])}")
     print(f"warnings: {len(findings['warnings'])}")
 
+    inventory = _rubric_finalization_inventory(raw_entries)
+    for team_role in sorted(inventory.keys()):
+        inv = inventory[team_role]
+        print(
+            "  rubric_finalization_inventory "
+            f"{team_role} deterministic={inv.get('deterministic', 0)} "
+            f"mixed={inv.get('mixed', 0)} "
+            f"human_review={inv.get('human_review', 0)} "
+            f"missing={inv.get('missing', 0)}"
+        )
+
     for item in findings["blocking"][:40]:
         print(f"  BLOCK: {item}")
     for item in findings["warnings"][:20]:
@@ -480,16 +535,30 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
                 findings.append({"severity": "error", "type": "resume_version_mismatch", "detail": "execution_plan_hash mismatch"})
 
     expected_versions = {
-        "engine_version": "0.9.0",
-        "task_suite_version": "1",
-        "scoring_version": "1",
-        "verifier_version": "1",
-        "report_version": "1",
+        "engine_version": ENGINE_VERSION,
+        "task_suite_version": TASK_SUITE_VERSION,
+        "scoring_version": SCORING_VERSION,
+        "verifier_version": VERIFIER_VERSION,
+        "report_version": REPORT_VERSION,
     }
     for key, expected in expected_versions.items():
         current = str(manifest.get(key, ""))
         if current != expected:
             findings.append({"severity": "error", "type": "resume_version_mismatch", "detail": f"{key} stored={current} current={expected}"})
+
+    stored_source_hashes = manifest.get("execution_source_hashes") or {}
+    if stored_source_hashes:
+        current_source_hashes = execution_source_hashes(PROJECT_ROOT)
+        for name, stored in stored_source_hashes.items():
+            current = current_source_hashes.get(name, "missing")
+            if current != stored:
+                findings.append(
+                    {
+                        "severity": "error",
+                        "type": "resume_source_hash_mismatch",
+                        "detail": f"{name} stored={stored} current={current}",
+                    }
+                )
 
     try:
         live = OllamaClient(base_url=config.ollama_base_url).list_models()
@@ -573,7 +642,7 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
             findings.append({"severity": "error", "type": "missing_rubric_output", "detail": path.name})
 
         if task.get("verification_classification", "rubric_assisted") == "rubric_assisted":
-            rubric_finalization = task.get("rubric_finalization", "deterministic")
+            rubric_finalization = task.get("rubric_finalization", "")
             statuses = {item.get("status") for item in (verifier_output.get("rubric_rules") or [])}
             deterministic_complete = bool(statuses) and statuses.isdisjoint({"uncertain"})
             if rubric_finalization == "deterministic" and deterministic_complete and result.get("score_status") == "provisional":

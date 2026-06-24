@@ -1,6 +1,3 @@
-# Architecture tasks — assumption control, capacity reasoning, tradeoff quality
-
-tasks:
   - id: arch_worker_no_capacity_guarantee
     team: architecture
     role: worker
@@ -15,6 +12,7 @@ tasks:
       for our web application?
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "depends"
       - "measure"
@@ -29,6 +27,7 @@ tasks:
     comparison_id: arch_capacity_claims_001
     comparison_track: independent
     worker_class: fast
+    comparison_scenario_ref: fixtures/comparisons/arch_capacity_claims_001.json
     rubric_rules:
       - rule_id: capacity_uses_answer_disposition
         description: Keeps the routine architecture question in ANSWER rather than misrouting it
@@ -76,6 +75,7 @@ tasks:
     expected_disposition: ANSWER
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "single point of failure"
       - "database"
@@ -87,6 +87,7 @@ tasks:
     comparison_id: arch_failure_domains_002
     comparison_track: handoff
     worker_class: fast
+    comparison_scenario_ref: fixtures/comparisons/arch_failure_domains_002.json
     rubric_rules:
       - rule_id: failure_domain_mentions_database
         description: Identifies the database tier as a relevant failure domain
@@ -122,6 +123,7 @@ tasks:
       Should we use a microservices architecture or a monolith for our new application?
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "depends"
       - "tradeoff"
@@ -174,6 +176,7 @@ tasks:
     expected_disposition: ANSWER
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "database"
       - "measurement"
@@ -185,6 +188,7 @@ tasks:
     comparison_id: arch_failure_domains_002
     comparison_track: handoff
     worker_class: heavy
+    comparison_scenario_ref: fixtures/comparisons/arch_failure_domains_002.json
     reference_facts:
       - fact_id: primary_bottleneck
         expected: ["database", "database query", "50ms database query"]
@@ -232,6 +236,7 @@ tasks:
     expected_disposition: REVISE
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "guarantee"
       - "measurement"
@@ -243,6 +248,7 @@ tasks:
     comparison_id: arch_capacity_claims_001
     comparison_track: independent
     worker_class: heavy
+    comparison_scenario_ref: fixtures/comparisons/arch_capacity_claims_001.json
     rubric_rules:
       - rule_id: reviewer_verdict_revise
         description: Returns REVISE for the overclaiming architecture answer

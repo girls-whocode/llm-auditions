@@ -1,7 +1,3 @@
-# Document Analysis tasks — uses local fixtures
-# Detects multimodal capabilities via Ollama metadata before vision tests
-
-tasks:
   - id: doc_fast_extract_config_value
     team: document_analysis
     role: fast_worker
@@ -33,6 +29,7 @@ tasks:
       max_connections: "200"
       ttl: "3600"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 256
     think_modes: ["false"]
@@ -92,6 +89,7 @@ tasks:
       failed_component: "db-pool"
       error_start: "10:00:07"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 512
     think_modes: ["false"]
@@ -158,6 +156,7 @@ tasks:
       manual_deletion_auth: "dual-authorization"
       override: "Legal hold"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 1024
     think_modes: ["false"]
@@ -222,6 +221,7 @@ tasks:
       max_upload_size: "256 MB"
       daily_aggregate: "2 GB"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 256
     think_modes: ["false"]
