@@ -210,6 +210,27 @@ class TestFactPreservationVerifier:
         result = fpv.verify(T(), self._make_response("anything"))
         assert result.passed
 
+    def test_list_reference_facts_shape_passes(self):
+        fpv = FactPreservationVerifier()
+
+        class T:
+            reference_facts = [
+                {
+                    "fact_id": "original_text",
+                    "expected": ["The procedure must not run before 2026-07-01."],
+                    "required": True,
+                },
+                {
+                    "fact_id": "must_not_clause",
+                    "expected": ["must not"],
+                    "required": True,
+                },
+            ]
+
+        edited = "The procedure must not run before 2026-07-01 and requires approval."
+        result = fpv.verify(T(), self._make_response(edited))
+        assert result.passed
+
 
 # ---------------------------------------------------------------------------
 # Evidence verifier
