@@ -9,9 +9,104 @@
     "Include concrete next measurements needed for a decision."
   ],
   "required_facts": [
-    "Capacity depends on workload profile, latency targets, and downstream dependencies.",
-    "A benchmark or load test is required before guarantees.",
-    "Any recommendation must note uncertainty and risk."
+    {
+      "fact_id": "workload_uncertainty",
+      "description": "Capacity depends on workload profile, latency targets, and downstream dependencies.",
+      "aliases": [
+        "workload profile",
+        "latency targets",
+        "downstream dependencies"
+      ]
+    },
+    {
+      "fact_id": "needs_benchmark",
+      "description": "A benchmark or load test is required before guarantees.",
+      "aliases": [
+        "benchmark",
+        "load test",
+        "representative testing"
+      ]
+    },
+    {
+      "fact_id": "state_risk",
+      "description": "Any recommendation must note uncertainty and risk.",
+      "aliases": [
+        "uncertainty",
+        "risk",
+        "confidence limit"
+      ]
+    }
   ],
-  "comparison_information_mode": "symmetric"
+  "comparison_information_mode": "symmetric",
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_workload_uncertainty",
+      "description": "Capacity depends on workload profile, latency targets, and downstream dependencies.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "workload_uncertainty"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "workload profile",
+          "latency targets",
+          "downstream dependencies"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_needs_benchmark",
+      "description": "A benchmark or load test is required before guarantees.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "needs_benchmark"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "benchmark",
+          "load test",
+          "representative testing"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_state_risk",
+      "description": "Any recommendation must note uncertainty and risk.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "state_risk"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "uncertainty",
+          "risk",
+          "confidence limit"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "state_risk"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "guaranteed 10,000 concurrent users without measurement",
+          "unconditional capacity guarantee"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
+  ]
 }

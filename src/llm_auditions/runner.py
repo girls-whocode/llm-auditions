@@ -242,6 +242,9 @@ class AuditionRunner:
                 scenario_version=scenario_version,
                 scenario_content_hash=scenario_content_hash,
                 comparison_information_mode=comparison_information_mode,
+                comparison_shared_rubric_version=task.comparison_shared_rubric_version,
+                use_shared_scenario_rubric=task.use_shared_scenario_rubric,
+                role_rubric_rules=[r.model_dump(mode="json") for r in task.role_rubric_rules],
                 task=task.model_dump(mode="json"),
             )
             path = snapshot_dir / f"{task.team}__{task.role}__{task.id}__{task.task_version}.json"
@@ -283,6 +286,12 @@ class AuditionRunner:
                 schema_path = PROJECT_ROOT / "schemas" / f"{t.required_json_schema}.schema.json"
                 if schema_path.exists():
                     schema_hashes[t.required_json_schema] = _sha256_file(schema_path)
+        for row in plan_rows:
+            scenario_ref = str(row.get("comparison_scenario_ref", "") or "")
+            if scenario_ref:
+                p = PROJECT_ROOT / scenario_ref
+                if p.exists():
+                    fixture_hashes[scenario_ref] = _sha256_file(p)
 
         model_digests: dict[str, str] = {}
         configured_digests = {m.name: m.full_digest or m.id for m in self.config.get_configured_models()}
@@ -311,10 +320,14 @@ class AuditionRunner:
                     "fixture_hashes": row.get("fixture_hashes", {}),
                     "comparison_id": row.get("comparison_id", ""),
                     "comparison_track": row.get("comparison_track", ""),
+                    "worker_class": row.get("worker_class", ""),
                     "comparison_scenario_ref": row.get("comparison_scenario_ref", ""),
                     "scenario_version": row.get("scenario_version", ""),
                     "scenario_content_hash": row.get("scenario_content_hash", ""),
                     "comparison_information_mode": row.get("comparison_information_mode", ""),
+                    "comparison_shared_rubric_version": row.get("comparison_shared_rubric_version", ""),
+                    "task_suite_version": row.get("task_suite_version", TASK_SUITE_VERSION),
+                    "handoff_compatibility_key": row.get("handoff_compatibility_key", ""),
                     "fast_plan_row_id": row.get("fast_plan_row_id", ""),
                 }
                 for row in plan_rows
@@ -572,8 +585,27 @@ class AuditionRunner:
                             executed_indices.add(idx)
                             continue
 
+                        fast_row = planned_rows[fast_idx]
+                        if not self._handoff_rows_compatible(fast_row, row):
+                            self._write_event(
+                                events_fh,
+                                {
+                                    "identity_key": "",
+                                    "status": "invalid_dependency",
+                                    "team": row.team,
+                                    "role": row.role,
+                                    "task_id": row.task_id,
+                                    "model": row.model,
+                                    "requested_think_mode": row.requested_think_mode,
+                                    "structured_output_mode": row.structured_output_mode,
+                                    "run_order": self._run_order,
+                                    "reason": "incompatible_handoff_dependency",
+                                },
+                            )
+                            executed_indices.add(idx)
+                            continue
+
                         if fast_idx not in executed_indices:
-                            fast_row = planned_rows[fast_idx]
                             fast_task = tasks_by_key[(fast_row.team, fast_row.role, fast_row.task_id, fast_row.task_version)]
                             self._run_order += 1
                             fast_results = list(
@@ -676,6 +708,11 @@ class AuditionRunner:
             model_response=None,
             handoff_context=None,
             comparison_scenario_hash=expected_scenario_hash,
+            scenario_version=getattr(fast_row, "scenario_version", ""),
+            comparison_information_mode=getattr(fast_row, "comparison_information_mode", ""),
+            handoff_compatibility_key=getattr(fast_row, "handoff_compatibility_key", ""),
+            comparison_shared_rubric_version=getattr(fast_row, "comparison_shared_rubric_version", ""),
+            structured_output_mode=getattr(fast_row, "structured_output_mode", ""),
         )
         pre_key = pre_identity.pre_request_key()
         fallback_candidates: list[TaskResult] = []
@@ -747,6 +784,11 @@ class AuditionRunner:
             model_response=None,
             handoff_context=handoff_context,
             comparison_scenario_hash=comparison_scenario_hash,
+            scenario_version=row.scenario_version,
+            comparison_information_mode=row.comparison_information_mode,
+            handoff_compatibility_key=row.handoff_compatibility_key,
+            comparison_shared_rubric_version=row.comparison_shared_rubric_version,
+            structured_output_mode=row.structured_output_mode,
         )
         pre_key = pre_identity.pre_request_key()
         if pre_key in self._completed_keys:
@@ -803,6 +845,11 @@ class AuditionRunner:
             model_response=response,
             handoff_context=handoff_context,
             comparison_scenario_hash=comparison_scenario_hash,
+            scenario_version=row.scenario_version,
+            comparison_information_mode=row.comparison_information_mode,
+            handoff_compatibility_key=row.handoff_compatibility_key,
+            comparison_shared_rubric_version=row.comparison_shared_rubric_version,
+            structured_output_mode=row.structured_output_mode,
         )
         status = "completed"
         if response.raw_json.get("_think_mode_unsupported"):
@@ -836,6 +883,7 @@ class AuditionRunner:
                 "scenario_content_hash": row.scenario_content_hash,
                 "scenario_version": row.scenario_version,
                 "comparison_information_mode": row.comparison_information_mode,
+                "handoff_compatibility_key": row.handoff_compatibility_key,
                 "fast_plan_row_id": row.fast_plan_row_id,
                 "run_order": self._run_order,
                 "weighted_total": result.scores.weighted_total,
@@ -1045,6 +1093,11 @@ class AuditionRunner:
         model_response: ModelResponse | None,
         handoff_context: dict[str, str] | None = None,
         comparison_scenario_hash: str = "",
+        scenario_version: str = "",
+        comparison_information_mode: str = "",
+        handoff_compatibility_key: str = "",
+        comparison_shared_rubric_version: str = "",
+        structured_output_mode: str = "",
     ) -> ResultIdentity:
         inv = self._inventory_by_name.get(model_name)
         configured = {m.name: m.full_digest or m.id for m in self.config.get_configured_models()}
@@ -1075,7 +1128,7 @@ class AuditionRunner:
             requested_think_mode=str(requested_think_mode),
             effective_think_mode=str(effective_think_mode),
             think_mode_accepted=True if model_response is None else model_response.think_mode_accepted,
-            structured_output_mode=task.structured_output_mode,
+            structured_output_mode=(structured_output_mode or task.structured_output_mode),
             schema_hash=schema_hash,
             temperature=task.temperature,
             num_ctx=task.num_ctx,
@@ -1087,6 +1140,10 @@ class AuditionRunner:
             handoff_fast_response_hash=(handoff_context or {}).get("fast_response_hash", ""),
             comparison_scenario_hash=comparison_scenario_hash,
             scenario_content_hash=comparison_scenario_hash,
+            scenario_version=scenario_version,
+            comparison_information_mode=comparison_information_mode,
+            handoff_compatibility_key=handoff_compatibility_key,
+            comparison_shared_rubric_version=comparison_shared_rubric_version,
         )
 
     def _build_messages(
@@ -1109,6 +1166,9 @@ class AuditionRunner:
             scenario_content_hash = scenario["scenario_content_hash"]
             scenario_version = scenario["scenario_version"]
             comparison_information_mode = scenario["comparison_information_mode"]
+            shared_rubric_version = scenario["shared_rubric_version"]
+        else:
+            shared_rubric_version = ""
 
         role_instruction = task.prompt.strip()
         output_contract = ""
@@ -1144,6 +1204,9 @@ class AuditionRunner:
                 "heavy_model": handoff_context.get("heavy_model", ""),
                 "heavy_model_digest": handoff_context.get("heavy_model_digest", ""),
                 "heavy_instruction": role_instruction,
+                "scenario_version": scenario_version,
+                "comparison_information_mode": comparison_information_mode,
+                "shared_rubric_version": shared_rubric_version,
             }
             user_sections.append(
                 "Escalation handoff from fast worker (use this as upstream context):\n"
@@ -1163,9 +1226,27 @@ class AuditionRunner:
             "scenario_content_hash": scenario_content_hash,
             "scenario_version": scenario_version,
             "comparison_information_mode": comparison_information_mode,
+            "shared_rubric_version": shared_rubric_version,
             "handoff_payload": handoff_payload,
         }
         return messages, prompt_components
+
+    def _handoff_rows_compatible(self, fast_row: PlannedRequest, heavy_row: PlannedRequest) -> bool:
+        fast_task_suite = str(getattr(fast_row, "task_suite_version", "") or TASK_SUITE_VERSION)
+        heavy_task_suite = str(getattr(heavy_row, "task_suite_version", "") or TASK_SUITE_VERSION)
+        return all(
+            [
+                fast_row.comparison_id == heavy_row.comparison_id,
+                fast_row.comparison_track == heavy_row.comparison_track,
+                fast_row.scenario_content_hash == heavy_row.scenario_content_hash,
+                fast_row.scenario_version == heavy_row.scenario_version,
+                fast_row.comparison_information_mode == heavy_row.comparison_information_mode,
+                fast_row.requested_think_mode == heavy_row.requested_think_mode,
+                fast_row.structured_output_mode == heavy_row.structured_output_mode,
+                fast_task_suite == heavy_task_suite,
+                fast_row.handoff_compatibility_key == heavy_row.handoff_compatibility_key,
+            ]
+        )
 
     def _load_schema_for_task(self, task: TaskDefinition, schemas_dir: Path) -> dict[str, Any] | None:
         schema_name = task.required_json_schema

@@ -1,252 +1,298 @@
-  - id: doc_fast_extract_config_value
-    team: document_analysis
-    role: fast_worker
-    category: extraction
-    smoke: true
-    system_prompt: |
-      You are a document analysis assistant. Extract the requested information
-      from the supplied document. Be precise and concise.
-    prompt: |
-      Document:
-      ```ini
-      [database]
-      host = db-primary.internal
-      port = 5432
-      name = production_db
-      max_connections = 200
-      connect_timeout = 10
-      pool_size = 50
+- id: doc_fast_extract_config_value
+  team: document_analysis
+  role: fast_worker
+  category: extraction
+  smoke: true
+  system_prompt: 'You are a document analysis assistant. Extract the requested information
 
-      [cache]
-      host = redis.internal
-      port = 6379
-      ttl = 3600
-      ```
+    from the supplied document. Be precise and concise.
 
-      What is the database port, maximum connections, and cache TTL?
-    reference_facts:
-      port: "5432"
-      max_connections: "200"
-      ttl: "3600"
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 256
-    think_modes: ["false"]
-    weight: 1.0
-    rubric_rules:
-      - rule_id: extract_db_port
-        description: Extracts the database port exactly
-        type: required
-        weight: 2.0
-        matcher:
-          type: reference_fact
-          fact_id: port
-      - rule_id: extract_max_connections
-        description: Extracts maximum connections exactly
-        type: required
-        weight: 2.0
-        matcher:
-          type: reference_fact
-          fact_id: max_connections
-      - rule_id: extract_cache_ttl
-        description: Extracts the cache TTL exactly
-        type: required
-        weight: 2.0
-        matcher:
-          type: reference_fact
-          fact_id: ttl
-      - rule_id: extract_no_approximation
-        description: Does not approximate or reinterpret the configuration values
-        type: forbidden
-        weight: 2.0
-        matcher:
-          type: forbidden_claim
-          phrases: ["about 200", "roughly 3600", "around 5432"]
-          allow_negated_mentions: true
+    '
+  prompt: 'Document:
 
-  - id: doc_fast_log_error_detection
-    team: document_analysis
-    role: fast_worker
-    category: log_analysis
-    smoke: true
-    system_prompt: |
-      You are a document analysis assistant. Analyze log files for errors and anomalies.
-    prompt: |
-      Analyze this log excerpt and identify: (1) errors, (2) the time range,
-      (3) which component failed.
+    ```ini
 
-      ```
-      2024-03-15 10:00:01 INFO  [auth-service] User login successful: user_id=1042
-      2024-03-15 10:00:03 INFO  [api-gateway] Request: GET /api/v1/data 200 45ms
-      2024-03-15 10:00:07 ERROR [db-pool] Connection pool exhausted: pool_size=50 waiting=127
-      2024-03-15 10:00:07 ERROR [api-gateway] Request: POST /api/v1/order 503 timeout
-      2024-03-15 10:00:08 ERROR [db-pool] Connection timeout after 10000ms host=db-primary.internal
-      2024-03-15 10:00:09 WARN  [api-gateway] Circuit breaker OPEN for db-pool
-      2024-03-15 10:00:12 INFO  [health-check] Service status: degraded
-      ```
-    reference_facts:
-      failed_component: "db-pool"
-      error_start: "10:00:07"
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 512
-    think_modes: ["false"]
-    weight: 1.0
-    rubric_rules:
-      - rule_id: log_identifies_component
-        description: Identifies db-pool as the failed component
-        type: required
-        weight: 3.0
-        matcher:
-          type: reference_fact
-          fact_id: failed_component
-      - rule_id: log_identifies_error_start
-        description: Identifies 10:00:07 as the start of the error window
-        type: required
-        weight: 2.0
-        matcher:
-          type: reference_fact
-          fact_id: error_start
-      - rule_id: log_distinguishes_error_from_warn
-        description: Distinguishes errors from the later warning entry
-        type: required
-        weight: 2.0
-        matcher:
-          type: phrase_aliases
-          phrases: ["ERROR", "WARN", "warning", "circuit breaker"]
+    [database]
 
-  - id: doc_complex_policy_analysis
-    team: document_analysis
-    role: complex_document
-    category: policy_analysis
-    smoke: true
-    system_prompt: |
-      You are a document analyst. Analyze the provided policy document and
-      answer questions based only on its contents.
-    prompt: |
-      Policy document (POLICY-001):
-      ---
-      DATA RETENTION POLICY v2.1 — Effective 2024-01-01
-      Retention periods:
-      - Customer PII: 7 years from last transaction
-      - Transaction records: 10 years (regulatory requirement)
-      - Application logs: 90 days
-      - Security audit logs: 5 years (required by SOC 2 Type II)
-      - Marketing analytics: 2 years unless consent withdrawn
-      - Backup archives: retained for duration of primary data retention period
+    host = db-primary.internal
 
-      Deletion procedures:
-      - Automated deletion must be approved by Data Protection Officer
-      - Manual deletion requires dual-authorization
-      - Deletion must be verified via cryptographic erasure certificate
+    port = 5432
 
-      Exceptions:
-      - Legal hold overrides all retention periods
-      - Data subject access requests must be fulfilled within 30 days
-      ---
+    name = production_db
 
-      Questions:
-      1. How long must transaction records be retained?
-      2. What authorization is required for manual deletion?
-      3. What overrides all retention periods?
-    reference_facts:
-      transaction_retention: "10 years"
-      manual_deletion_auth: "dual-authorization"
-      override: "Legal hold"
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 1024
-    think_modes: ["false"]
-    weight: 1.5
-    rubric_rules:
-      - rule_id: policy_transaction_retention
-        description: Extracts the transaction-retention period exactly
-        type: required
-        weight: 2.0
-        matcher:
-          type: reference_fact
-          fact_id: transaction_retention
-      - rule_id: policy_manual_deletion_auth
-        description: Extracts the dual-authorization requirement for manual deletion
-        type: required
-        weight: 2.0
-        matcher:
-          type: reference_fact
-          fact_id: manual_deletion_auth
-      - rule_id: policy_override
-        description: Identifies legal hold as the override for retention periods
-        type: required
-        weight: 2.0
-        matcher:
-          type: reference_fact
-          fact_id: override
-      - rule_id: policy_no_invented_exceptions
-        description: Does not invent policy exceptions not present in the document
-        type: forbidden
-        weight: 2.0
-        matcher:
-          type: forbidden_claim
-          phrases: ["board approval", "CISO override", "7-day deletion"]
-          allow_negated_mentions: true
+    max_connections = 200
 
-  - id: doc_fast_hidden_fact
-    team: document_analysis
-    role: fast_worker
-    category: extraction
-    smoke: false
-    description: "Model must find a fact buried in a long document without fabricating"
-    system_prompt: |
-      You are a document analyst. Answer only from the provided text.
-      If the information is not in the text, say so.
-    prompt: |
-      Find the maximum file upload size limit in this document.
+    connect_timeout = 10
 
-      [Long document excerpt]
-      Section 1: Introduction
-      Our platform provides enterprise-grade document management capabilities...
-      [... 200 words of unrelated content ...]
-      Section 4: API Specifications
-      Rate limits: 1000 requests/hour per API key.
-      Authentication: Bearer token, expiry 24 hours.
-      File operations: Supported formats include PDF, DOCX, XLSX, and CSV.
-      Maximum file upload size: 256 MB per file, 2 GB per day aggregate.
-      Concurrent uploads: Maximum 10 simultaneous uploads per account.
-      [... 100 words of unrelated content ...]
-      Section 7: Pricing
-      [...]
-    reference_facts:
-      max_upload_size: "256 MB"
-      daily_aggregate: "2 GB"
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 256
-    think_modes: ["false"]
-    weight: 1.5
-    rubric_rules:
-      - rule_id: hidden_fact_max_upload
-        description: Extracts the 256 MB per-file limit
-        type: required
-        weight: 3.0
-        matcher:
-          type: reference_fact
-          fact_id: max_upload_size
-      - rule_id: hidden_fact_daily_aggregate
-        description: Extracts the 2 GB per-day aggregate limit
-        type: required
-        weight: 2.0
-        matcher:
-          type: reference_fact
-          fact_id: daily_aggregate
-      - rule_id: hidden_fact_no_fabrication
-        description: Does not invent a different upload limit
-        type: hard_gate
-        weight: 4.0
-        matcher:
-          type: forbidden_claim
-          phrases: ["512 MB", "5 GB", "unlimited uploads"]
-          allow_negated_mentions: true
-    criticality: high
+    pool_size = 50
+
+
+    [cache]
+
+    host = redis.internal
+
+    port = 6379
+
+    ttl = 3600
+
+    ```
+
+
+    What is the database port, maximum connections, and cache TTL?
+
+    '
+  reference_facts:
+    port: '5432'
+    max_connections: '200'
+    ttl: '3600'
+  verification_classification: rubric_assisted
+  rubric_finalization: deterministic
+  temperature: 0
+  num_predict: 256
+  think_modes:
+  - 'false'
+  weight: 1.0
+  rubric_rules:
+  - rule_id: extract_db_port
+    description: Extracts the database port exactly
+    type: required
+    weight: 2.0
+    matcher:
+      type: reference_fact
+      fact_id: port
+  - rule_id: extract_max_connections
+    description: Extracts maximum connections exactly
+    type: required
+    weight: 2.0
+    matcher:
+      type: reference_fact
+      fact_id: max_connections
+  - rule_id: extract_cache_ttl
+    description: Extracts the cache TTL exactly
+    type: required
+    weight: 2.0
+    matcher:
+      type: reference_fact
+      fact_id: ttl
+  - rule_id: extract_no_approximation
+    description: Does not approximate or reinterpret the configuration values
+    type: forbidden
+    weight: 2.0
+    matcher:
+      type: forbidden_claim
+      phrases:
+      - about 200
+      - roughly 3600
+      - around 5432
+      allow_negated_mentions: true
+- id: doc_fast_log_error_detection
+  team: document_analysis
+  role: fast_worker
+  category: log_analysis
+  smoke: true
+  system_prompt: 'You are a document analysis assistant. Analyze log files for errors and anomalies.
+
+    '
+  prompt: 'Analyze this log excerpt and identify: (1) errors, (2) the time range,
+
+    (3) which component failed.
+
+
+    ```
+
+    2024-03-15 10:00:01 INFO  [auth-service] User login successful: user_id=1042
+
+    2024-03-15 10:00:03 INFO  [api-gateway] Request: GET /api/v1/data 200 45ms
+
+    2024-03-15 10:00:07 ERROR [db-pool] Connection pool exhausted: pool_size=50 waiting=127
+
+    2024-03-15 10:00:07 ERROR [api-gateway] Request: POST /api/v1/order 503 timeout
+
+    2024-03-15 10:00:08 ERROR [db-pool] Connection timeout after 10000ms host=db-primary.internal
+
+    2024-03-15 10:00:09 WARN  [api-gateway] Circuit breaker OPEN for db-pool
+
+    2024-03-15 10:00:12 INFO  [health-check] Service status: degraded
+
+    ```
+
+    '
+  reference_facts:
+    failed_component: db-pool
+    error_start: '10:00:07'
+  verification_classification: rubric_assisted
+  rubric_finalization: deterministic
+  temperature: 0
+  num_predict: 512
+  think_modes:
+  - 'false'
+  weight: 1.0
+  rubric_rules:
+  - rule_id: log_identifies_component
+    description: Identifies db-pool as the failed component
+    type: required
+    weight: 3.0
+    matcher:
+      type: reference_fact
+      fact_id: failed_component
+  - rule_id: log_identifies_error_start
+    description: Identifies 10:00:07 as the start of the error window
+    type: required
+    weight: 2.0
+    matcher:
+      type: reference_fact
+      fact_id: error_start
+  - rule_id: log_distinguishes_error_from_warn
+    description: Distinguishes errors from the later warning entry
+    type: required
+    weight: 2.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - ERROR
+      - WARN
+      - warning
+      - circuit breaker
+- id: doc_complex_policy_analysis
+  team: document_analysis
+  role: complex_document
+  category: policy_analysis
+  smoke: true
+  system_prompt: 'You are a document analyst. Analyze the provided policy document and
+
+    answer questions based only on its contents.
+
+    '
+  prompt: "Policy document (POLICY-001):\n---\nDATA RETENTION POLICY v2.1 \u2014 Effective 2024-01-01\nRetention periods:\n\
+    - Customer PII: 7 years from last transaction\n- Transaction records: 10 years (regulatory requirement)\n- Application\
+    \ logs: 90 days\n- Security audit logs: 5 years (required by SOC 2 Type II)\n- Marketing analytics: 2 years unless consent\
+    \ withdrawn\n- Backup archives: retained for duration of primary data retention period\n\nDeletion procedures:\n- Automated\
+    \ deletion must be approved by Data Protection Officer\n- Manual deletion requires dual-authorization\n- Deletion must\
+    \ be verified via cryptographic erasure certificate\n\nExceptions:\n- Legal hold overrides all retention periods\n- Data\
+    \ subject access requests must be fulfilled within 30 days\n---\n\nQuestions:\n1. How long must transaction records be\
+    \ retained?\n2. What authorization is required for manual deletion?\n3. What overrides all retention periods?\n"
+  reference_facts:
+    transaction_retention: 10 years
+    manual_deletion_auth: dual-authorization
+    override: Legal hold
+  verification_classification: rubric_assisted
+  rubric_finalization: mixed
+  temperature: 0
+  num_predict: 1024
+  think_modes:
+  - 'false'
+  weight: 1.5
+  rubric_rules:
+  - rule_id: policy_transaction_retention
+    description: Extracts the transaction-retention period exactly
+    type: required
+    weight: 2.0
+    matcher:
+      type: reference_fact
+      fact_id: transaction_retention
+  - rule_id: policy_manual_deletion_auth
+    description: Extracts the dual-authorization requirement for manual deletion
+    type: required
+    weight: 2.0
+    matcher:
+      type: reference_fact
+      fact_id: manual_deletion_auth
+  - rule_id: policy_override
+    description: Identifies legal hold as the override for retention periods
+    type: required
+    weight: 2.0
+    matcher:
+      type: reference_fact
+      fact_id: override
+  - rule_id: policy_no_invented_exceptions
+    description: Does not invent policy exceptions not present in the document
+    type: forbidden
+    weight: 2.0
+    matcher:
+      type: forbidden_claim
+      phrases:
+      - board approval
+      - CISO override
+      - 7-day deletion
+      allow_negated_mentions: true
+  rubric_finalization_rationale: Deterministic checks cover objective gates, but holistic policy synthesis quality requires
+    mixed finalization.
+  deterministic_override: false
+- id: doc_fast_hidden_fact
+  team: document_analysis
+  role: fast_worker
+  category: extraction
+  smoke: false
+  description: Model must find a fact buried in a long document without fabricating
+  system_prompt: 'You are a document analyst. Answer only from the provided text.
+
+    If the information is not in the text, say so.
+
+    '
+  prompt: 'Find the maximum file upload size limit in this document.
+
+
+    [Long document excerpt]
+
+    Section 1: Introduction
+
+    Our platform provides enterprise-grade document management capabilities...
+
+    [... 200 words of unrelated content ...]
+
+    Section 4: API Specifications
+
+    Rate limits: 1000 requests/hour per API key.
+
+    Authentication: Bearer token, expiry 24 hours.
+
+    File operations: Supported formats include PDF, DOCX, XLSX, and CSV.
+
+    Maximum file upload size: 256 MB per file, 2 GB per day aggregate.
+
+    Concurrent uploads: Maximum 10 simultaneous uploads per account.
+
+    [... 100 words of unrelated content ...]
+
+    Section 7: Pricing
+
+    [...]
+
+    '
+  reference_facts:
+    max_upload_size: 256 MB
+    daily_aggregate: 2 GB
+  verification_classification: rubric_assisted
+  rubric_finalization: deterministic
+  temperature: 0
+  num_predict: 256
+  think_modes:
+  - 'false'
+  weight: 1.5
+  rubric_rules:
+  - rule_id: hidden_fact_max_upload
+    description: Extracts the 256 MB per-file limit
+    type: required
+    weight: 3.0
+    matcher:
+      type: reference_fact
+      fact_id: max_upload_size
+  - rule_id: hidden_fact_daily_aggregate
+    description: Extracts the 2 GB per-day aggregate limit
+    type: required
+    weight: 2.0
+    matcher:
+      type: reference_fact
+      fact_id: daily_aggregate
+  - rule_id: hidden_fact_no_fabrication
+    description: Does not invent a different upload limit
+    type: hard_gate
+    weight: 4.0
+    matcher:
+      type: forbidden_claim
+      phrases:
+      - 512 MB
+      - 5 GB
+      - unlimited uploads
+      allow_negated_mentions: true
+  criticality: high

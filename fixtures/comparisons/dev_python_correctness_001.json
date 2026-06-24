@@ -9,13 +9,109 @@
     "Explain residual risks when correctness cannot be proven from provided context."
   ],
   "required_facts": [
-    "Empty input and boundary conditions must be handled explicitly.",
-    "Thread-safety requires consistent synchronization around shared state.",
-    "Recommendations should include test cases for concurrency and negative paths."
+    {
+      "fact_id": "boundaries",
+      "description": "Empty input and boundary conditions must be handled explicitly.",
+      "aliases": [
+        "empty input",
+        "boundary condition",
+        "edge case"
+      ]
+    },
+    {
+      "fact_id": "thread_safety",
+      "description": "Thread-safety requires consistent synchronization around shared state.",
+      "aliases": [
+        "thread-safety",
+        "synchronization",
+        "shared state",
+        "lock"
+      ]
+    },
+    {
+      "fact_id": "test_coverage",
+      "description": "Recommendations should include test cases for concurrency and negative paths.",
+      "aliases": [
+        "concurrency tests",
+        "negative paths",
+        "deterministic tests"
+      ]
+    }
   ],
   "comparison_information_mode": "symmetric",
   "safety_requirements": [
     "No host execution assumptions.",
     "No irreversible filesystem or network side effects."
+  ],
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_boundaries",
+      "description": "Empty input and boundary conditions must be handled explicitly.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "boundaries"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "empty input",
+          "boundary condition",
+          "edge case"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_thread_safety",
+      "description": "Thread-safety requires consistent synchronization around shared state.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "thread_safety"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "thread-safety",
+          "synchronization",
+          "shared state",
+          "lock"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_test_coverage",
+      "description": "Recommendations should include test cases for concurrency and negative paths.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "test_coverage"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "concurrency tests",
+          "negative paths",
+          "deterministic tests"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "test_coverage"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "run code on production systems"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
   ]
 }

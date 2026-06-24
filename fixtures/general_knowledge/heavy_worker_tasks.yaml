@@ -12,7 +12,7 @@
   expected_disposition: ANSWER
   required_json_schema: worker_result
   verification_classification: rubric_assisted
-  rubric_finalization: deterministic
+  rubric_finalization: mixed
   reference_facts:
     meeting_time_hours: 3
     meeting_distance_from_A_miles: 180
@@ -26,31 +26,38 @@
   comparison_track: independent
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/gk_reasoning_precision_002.json
-  rubric_rules:
-  - rule_id: train_meeting_time
-    description: Computes the 3-hour meeting time correctly
+  rubric_rules: &id001
+  - rule_id: heavy_deeper_diagnosis
+    description: Provides deeper diagnosis beyond initial triage.
     type: required
-    weight: 3.0
-    matcher:
-      type: reference_fact
-      fact_id: meeting_time_hours
-  - rule_id: train_meeting_distance
-    description: Computes the 180-mile distance from city A correctly
-    type: required
-    weight: 2.0
-    matcher:
-      type: reference_fact
-      fact_id: meeting_distance_from_A_miles
-  - rule_id: train_reasoning_shown
-    description: Shows the relative-speed reasoning in the answer
-    type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - 100 mph
-      - relative speed
-      - 300 / 100
+      - deeper analysis
+      - diagnosis
+      - root cause
+  - rule_id: heavy_risk_analysis
+    description: Includes remediation completeness and risk analysis.
+    type: required
+    weight: 1.5
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - risk
+      - rollback
+      - verification
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id001
+  required_concepts:
+  - false premise
+  - relative speed
+  - clarity
+  rubric_finalization_rationale: Shared rubric gates deterministic safety/fact coverage, while synthesis quality requires
+    mixed finalization.
+  deterministic_override: false
+  criticality: high
 - id: gk_heavy_baseline_comparison
   team: general_knowledge
   role: heavy_worker
@@ -121,13 +128,14 @@
 
     '
   prompt: Review, correct, and improve the fast worker response using the original scenario.
-  expected_disposition: ANSWER
+  expected_disposition: REVISE
   required_json_schema: worker_result
   verification_classification: rubric_assisted
   rubric_finalization: mixed
   required_concepts:
-  - evidence
-  - risk
+  - kantian
+  - moral uncertainty
+  - structured synthesis
   temperature: 0
   num_predict: 2048
   think_modes:
@@ -138,42 +146,34 @@
   comparison_track: handoff
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/gk_philosophy_escalation_001.json
-  rubric_rules:
-  - rule_id: ai_risk_mentions_multiple_categories
-    description: Covers multiple distinct systemic risk categories
+  rubric_rules: &id002
+  - rule_id: heavy_corrects_fast
+    description: Corrects or improves fast response when needed.
     type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - risk
-      - institutional
-      - governance
-      - labor
-      - security
-  - rule_id: ai_risk_mentions_mechanisms
-    description: Explains mechanisms for the named risks
+      - correct
+      - improve
+      - revise
+  - rule_id: heavy_preserves_fast_findings
+    description: Preserves correct fast findings while extending depth.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - mechanism
-      - how the risk materializes
-      - feedback loop
-  - rule_id: ai_risk_mentions_evidence
-    description: States what evidence would indicate the risk is materializing
-    type: required
-    weight: 2.0
-    matcher:
-      type: phrase_aliases
-      phrases:
-      - evidence
-      - indicator
-      - measure
-      - observable signal
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+      - preserve
+      - carry forward
+      - upstream finding
+  rubric_finalization_rationale: Shared rubric gates deterministic safety/fact coverage, while synthesis quality requires
+    mixed finalization.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id002
+  deterministic_override: false
+  criticality: high
 - id: gk_heavy_overclaim_restraint
   team: general_knowledge
   role: heavy_worker

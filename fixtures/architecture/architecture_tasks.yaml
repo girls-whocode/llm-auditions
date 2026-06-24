@@ -14,8 +14,9 @@
   verification_classification: rubric_assisted
   rubric_finalization: deterministic
   required_concepts:
-  - depends
-  - measure
+  - workload profile
+  - benchmark
+  - uncertainty
   forbidden_claims:
   - yes, it will handle
   - will definitely
@@ -29,46 +30,34 @@
   comparison_track: independent
   worker_class: fast
   comparison_scenario_ref: fixtures/comparisons/arch_capacity_claims_001.json
-  rubric_rules:
-  - rule_id: capacity_uses_answer_disposition
-    description: Keeps the routine architecture question in ANSWER rather than misrouting it
+  rubric_rules: &id001
+  - rule_id: fast_initial_triage
+    description: Provides concise initial triage grounded in the shared scenario.
     type: required
-    weight: 1.0
-    matcher:
-      type: disposition
-      value: ANSWER
-  - rule_id: capacity_states_dependency
-    description: States that capacity depends on workload characteristics
-    type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - depends
-      - it depends on workload
-      - depends on the application profile
-  - rule_id: capacity_requires_measurement
-    description: Requires measurement or load testing before making a claim
+      - initial
+      - triage
+      - immediate
+  - rule_id: fast_escalation_decision
+    description: States whether escalation is needed with rationale.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - measure
-      - load test
-      - benchmark
-  - rule_id: capacity_forbids_exact_guarantee
-    description: Does not guarantee the server will handle 10,000 concurrent users
-    type: hard_gate
-    weight: 4.0
-    matcher:
-      type: forbidden_claim
-      phrases:
-      - yes, it will handle
-      - will definitely
-      - can guarantee 10,000 concurrent users
-      allow_negated_mentions: true
+      - escalate
+      - escalation
+      - no escalation
   criticality: high
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id001
+  expected_disposition: ANSWER
+  rubric_finalization_rationale: ''
+  deterministic_override: false
 - id: arch_worker_failure_domain
   team: architecture
   role: worker
@@ -80,13 +69,14 @@
 
     '
   prompt: Provide a concise initial diagnosis, immediate safe checks, and whether escalation is needed.
-  expected_disposition: ANSWER
+  expected_disposition: ESCALATE_HEAVY
   required_json_schema: worker_result
   verification_classification: rubric_assisted
-  rubric_finalization: mixed
+  rubric_finalization: deterministic
   required_concepts:
-  - single point of failure
-  - database
+  - failure domain
+  - failover lag
+  - verification
   temperature: 0
   num_predict: 2048
   think_modes:
@@ -97,39 +87,33 @@
   comparison_track: handoff
   worker_class: fast
   comparison_scenario_ref: fixtures/comparisons/arch_failure_domains_002.json
-  rubric_rules:
-  - rule_id: failure_domain_mentions_database
-    description: Identifies the database tier as a relevant failure domain
+  rubric_rules: &id002
+  - rule_id: fast_handoff_triage
+    description: Provides concise triage suitable for escalation handoff.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - database
-      - PostgreSQL
-      - primary database
-  - rule_id: failure_domain_mentions_single_point
-    description: Identifies at least one single point of failure or failover boundary
+      - triage
+      - initial diagnosis
+      - immediate checks
+  - rule_id: fast_handoff_decision
+    description: Explicitly signals escalation conditions for heavy worker.
     type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - single point of failure
-      - failover
-      - hot standby
-  - rule_id: failure_domain_covers_multiple_tiers
-    description: Covers multiple architecture tiers, not just one component
-    type: required
-    weight: 2.0
-    matcher:
-      type: phrase_aliases
-      phrases:
-      - load balancer
-      - application servers
-      - database tier
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+      - escalate
+      - handoff
+      - upstream context
+  rubric_finalization_rationale: ''
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id002
+  deterministic_override: false
+  criticality: high
 - id: arch_worker_tradeoff_quality
   team: architecture
   role: worker
@@ -197,13 +181,14 @@
 
     '
   prompt: Review, correct, and improve the fast worker response using the original scenario.
-  expected_disposition: ANSWER
+  expected_disposition: REVISE
   required_json_schema: worker_result
   verification_classification: rubric_assisted
   rubric_finalization: mixed
   required_concepts:
-  - database
-  - measurement
+  - failure domain
+  - failover lag
+  - verification
   temperature: 0
   num_predict: 2048
   think_modes:
@@ -221,38 +206,34 @@
     - database query
     - 50ms database query
     required: true
-  rubric_rules:
-  - rule_id: bottleneck_identifies_database
-    description: Identifies the database query as the primary bottleneck
+  rubric_rules: &id003
+  - rule_id: heavy_corrects_fast
+    description: Corrects or improves fast response when needed.
     type: required
-    weight: 3.0
-    matcher:
-      type: reference_fact
-      fact_id: primary_bottleneck
-  - rule_id: bottleneck_mentions_measurement
-    description: Specifies measurements that would confirm the analysis
-    type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - measurement
-      - measure
-      - latency profiling
-      - database timings
-  - rule_id: bottleneck_mentions_architectural_change
-    description: Proposes an architectural change targeted at the database bottleneck
+      - correct
+      - improve
+      - revise
+  - rule_id: heavy_preserves_fast_findings
+    description: Preserves correct fast findings while extending depth.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - read replica
-      - query optimization
-      - caching
-      - database scaling
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+      - preserve
+      - carry forward
+      - upstream finding
+  rubric_finalization_rationale: Shared rubric gates deterministic safety/fact coverage, while synthesis quality requires
+    mixed finalization.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id003
+  deterministic_override: false
+  criticality: high
 - id: arch_reviewer_overclaim_check
   team: architecture
   role: reviewer
@@ -265,13 +246,14 @@
 
     '
   prompt: Analyze the original scenario independently and produce a complete diagnosis and remediation plan.
-  expected_disposition: REVISE
+  expected_disposition: ANSWER
   required_json_schema: reviewer_result
   verification_classification: rubric_assisted
   rubric_finalization: mixed
   required_concepts:
-  - guarantee
-  - measurement
+  - workload profile
+  - benchmark
+  - uncertainty
   temperature: 0
   num_predict: 512
   think_modes:
@@ -282,33 +264,31 @@
   comparison_track: independent
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/arch_capacity_claims_001.json
-  rubric_rules:
-  - rule_id: reviewer_verdict_revise
-    description: Returns REVISE for the overclaiming architecture answer
+  rubric_rules: &id004
+  - rule_id: heavy_deeper_diagnosis
+    description: Provides deeper diagnosis beyond initial triage.
     type: required
-    weight: 2.0
-    matcher:
-      type: disposition
-      value: REVISE
-  - rule_id: reviewer_flags_capacity_guarantee
-    description: Flags the unsupported capacity guarantee and zero-latency claim
-    type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - guarantee
-      - zero latency degradation
-      - unsupported capacity claim
-  - rule_id: reviewer_requests_measurement
-    description: Requests measurement or representative load testing
+      - deeper analysis
+      - diagnosis
+      - root cause
+  - rule_id: heavy_risk_analysis
+    description: Includes remediation completeness and risk analysis.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - measurement
-      - load testing
-      - benchmark data
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+      - risk
+      - rollback
+      - verification
+  rubric_finalization_rationale: Shared rubric gates deterministic safety/fact coverage, while synthesis quality requires
+    mixed finalization.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id004
+  deterministic_override: false
+  criticality: high

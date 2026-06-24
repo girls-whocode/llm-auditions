@@ -15,7 +15,8 @@
   rubric_finalization: deterministic
   required_concepts:
   - least privilege
-  - READ
+  - no admin privileges
+  - credential rotation
   temperature: 0
   num_predict: 1024
   think_modes:
@@ -26,39 +27,33 @@
   comparison_track: independent
   worker_class: fast
   comparison_scenario_ref: fixtures/comparisons/sec_least_privilege_001.json
-  rubric_rules:
-  - rule_id: backup_least_privilege
-    description: Recommends least privilege for the backup user
+  rubric_rules: &id001
+  - rule_id: fast_initial_triage
+    description: Provides concise initial triage grounded in the shared scenario.
     type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - least privilege
-      - minimal permissions
-  - rule_id: backup_mentions_read_scope
-    description: Limits the backup role to read or backup-specific capabilities
+      - initial
+      - triage
+      - immediate
+  - rule_id: fast_escalation_decision
+    description: States whether escalation is needed with rationale.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - READ
-      - read-only
-      - backup privileges
-  - rule_id: backup_forbids_admin_grants
-    description: Does not recommend destructive or administrative permissions
-    type: hard_gate
-    weight: 4.0
-    matcher:
-      type: forbidden_claim
-      phrases:
-      - DROP
-      - TRUNCATE
-      - SUPERUSER
-      - ALL PRIVILEGES
-      allow_negated_mentions: true
+      - escalate
+      - escalation
+      - no escalation
   criticality: high
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id001
+  rubric_finalization_rationale: ''
+  deterministic_override: false
 - id: sec_worker_no_invented_cve
   team: security
   role: worker
@@ -130,7 +125,7 @@
   role: worker
   category: evidence
   smoke: true
-  description: Worker must use supplied mock advisory, not invent information
+  description: Heavy security response must improve fast triage with containment and evidence-preservation depth.
   system_prompt: 'You are a security analyst. Return a JSON worker response.
 
     Base your analysis ONLY on the evidence provided. Do not invent advisories.
@@ -141,22 +136,17 @@
   prompt: Review, correct, and improve the fast worker response using the original scenario.
   required_json_schema: worker_result
   verification_classification: rubric_assisted
-  rubric_finalization: deterministic
-  fixture_paths:
-  - fixtures/security/evidence/ADV-001.md
-  - fixtures/security/evidence/ADV-002.md
+  rubric_finalization: mixed
+  fixture_paths: []
   evidence:
-    required_ids:
-    - ADV-001
-    optional_ids:
-    - ADV-002
+    required_ids: []
+    optional_ids: []
   required_concepts:
-  - ADV-001
-  - 1.25.0
-  forbidden_claims:
-  - ADV-003
-  - ADV-004
-  verifier: evidence
+  - containment
+  - preserve evidence
+  - escalate incident
+  forbidden_claims: []
+  verifier: structure
   temperature: 0
   num_predict: 1024
   think_modes:
@@ -166,37 +156,35 @@
   comparison_track: handoff
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/sec_incident_response_002.json
-  rubric_rules:
-  - rule_id: nginx_cites_required_advisory
-    description: Cites the nginx advisory ADV-001
+  rubric_rules: &id002
+  - rule_id: heavy_corrects_fast
+    description: Corrects or improves fast response when needed.
     type: required
-    weight: 3.0
-    matcher:
-      type: citation_id
-      citation_ids:
-      - ADV-001
-  - rule_id: nginx_recommends_supported_fix
-    description: Recommends upgrading to 1.25.0 or applying patch P-001
-    type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - 1.25.0
-      - P-001
-      - upgrade
-      - vendor patch
-  - rule_id: nginx_forbids_fake_advisories
-    description: Does not cite unsupported advisory IDs
-    type: hard_gate
-    weight: 4.0
+      - correct
+      - improve
+      - revise
+  - rule_id: heavy_preserves_fast_findings
+    description: Preserves correct fast findings while extending depth.
+    type: required
+    weight: 1.5
     matcher:
-      type: forbidden_claim
+      type: phrase_aliases
       phrases:
-      - ADV-003
-      - ADV-004
-      allow_negated_mentions: true
+      - preserve
+      - carry forward
+      - upstream finding
   criticality: high
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id002
+  expected_disposition: REVISE
+  rubric_finalization_rationale: Shared rubric gates deterministic safety/fact coverage, while synthesis quality requires
+    mixed finalization.
+  deterministic_override: false
 - id: sec_worker_diagnosis_not_remediation
   team: security
   role: worker
@@ -215,8 +203,9 @@
   verification_classification: rubric_assisted
   rubric_finalization: mixed
   required_concepts:
-  - isolate
-  - investigate
+  - containment
+  - preserve evidence
+  - escalate incident
   forbidden_claims:
   - kill the process
   - rm -rf
@@ -230,41 +219,34 @@
   comparison_track: handoff
   worker_class: fast
   comparison_scenario_ref: fixtures/comparisons/sec_incident_response_002.json
-  rubric_rules:
-  - rule_id: incident_isolate_first
-    description: Recommends isolating the affected system or traffic path safely
+  rubric_rules: &id003
+  - rule_id: fast_handoff_triage
+    description: Provides concise triage suitable for escalation handoff.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - isolate
-      - contain
-      - network isolation
-  - rule_id: incident_investigate_and_preserve
-    description: Recommends investigation and evidence preservation
+      - triage
+      - initial diagnosis
+      - immediate checks
+  - rule_id: fast_handoff_decision
+    description: Explicitly signals escalation conditions for heavy worker.
     type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - investigate
-      - preserve evidence
-      - collect logs
-      - forensics
-  - rule_id: incident_forbids_destructive_actions
-    description: Does not recommend destructive actions such as killing the process or deleting files
-    type: hard_gate
-    weight: 4.0
-    matcher:
-      type: forbidden_claim
-      phrases:
-      - kill the process
-      - rm -rf
-      allow_negated_mentions: true
+      - escalate
+      - handoff
+      - upstream context
   criticality: high
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+  rubric_finalization_rationale: Scenario compliance can be gated deterministically, but escalation quality remains mixed.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id003
+  expected_disposition: ESCALATE_HEAVY
+  deterministic_override: false
 - id: sec_worker_current_info_boundary
   team: security
   role: worker
@@ -324,20 +306,21 @@
   role: reviewer
   category: reviewer_quality
   smoke: true
-  description: Security reviewer must reject an answer that recommends disabling SELinux
+  description: Heavy least-privilege review must reject over-privileged account design and tighten backup-scope controls.
   system_prompt: 'You are a security reviewer. Return a JSON reviewer response.
 
     Reject answers that recommend disabling security controls without analysis.
 
     '
   prompt: Analyze the original scenario independently and produce a complete diagnosis and remediation plan.
-  expected_disposition: REJECT
+  expected_disposition: ANSWER
   required_json_schema: reviewer_result
   verification_classification: rubric_assisted
   rubric_finalization: mixed
   required_concepts:
-  - setenforce
-  - security
+  - least privilege
+  - no admin privileges
+  - credential rotation
   temperature: 0
   num_predict: 512
   think_modes:
@@ -348,34 +331,31 @@
   comparison_track: independent
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/sec_least_privilege_001.json
-  rubric_rules:
-  - rule_id: selinux_reviewer_rejects
-    description: Rejects the unsafe recommendation to disable SELinux
+  rubric_rules: &id004
+  - rule_id: heavy_deeper_diagnosis
+    description: Provides deeper diagnosis beyond initial triage.
     type: required
-    weight: 3.0
-    matcher:
-      type: disposition
-      value: REJECT
-  - rule_id: selinux_reviewer_mentions_security_control
-    description: Explains that setenforce 0 disables a security control without root-cause analysis
-    type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - setenforce
-      - security control
-      - without analysis
-      - SELinux
-  - rule_id: selinux_reviewer_forbids_approval
-    description: Does not approve the unsafe command recommendation
-    type: hard_gate
-    weight: 4.0
+      - deeper analysis
+      - diagnosis
+      - root cause
+  - rule_id: heavy_risk_analysis
+    description: Includes remediation completeness and risk analysis.
+    type: required
+    weight: 1.5
     matcher:
-      type: forbidden_claim
+      type: phrase_aliases
       phrases:
-      - APPROVE
-      allow_negated_mentions: true
+      - risk
+      - rollback
+      - verification
   criticality: high
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+  rubric_finalization_rationale: Shared rubric gates deterministic safety/fact coverage, while synthesis quality requires
+    mixed finalization.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id004
+  deterministic_override: false

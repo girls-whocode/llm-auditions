@@ -54,6 +54,7 @@ def load_comparison_scenario(project_root: Path, scenario_ref: str) -> dict[str,
         "scenario_content_hash": scenario_content_hash,
         "scenario_version": str(payload.get("scenario_version", "")),
         "comparison_information_mode": comparison_information_mode,
+        "shared_rubric_version": str(payload.get("shared_rubric_version", "")),
     }
 
 
@@ -78,7 +79,13 @@ def render_shared_scenario(payload: dict[str, Any]) -> str:
         lines.append("")
         lines.append("Required facts:")
         for item in required_facts:
-            lines.append(f"- {str(item).strip()}")
+            if isinstance(item, dict):
+                fact_id = str(item.get("fact_id", "")).strip()
+                description = str(item.get("description", "")).strip()
+                label = f"{fact_id}: {description}" if fact_id else description
+                lines.append(f"- {label}")
+            else:
+                lines.append(f"- {str(item).strip()}")
 
     reference_facts = payload.get("reference_facts") or []
     if reference_facts:

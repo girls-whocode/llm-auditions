@@ -9,9 +9,103 @@
     "List required production measurements before commitment."
   ],
   "required_facts": [
-    "Benchmark context can differ from production behavior.",
-    "Latency guarantees require representative load testing.",
-    "Risk communication must include uncertainty and confidence limits."
+    {
+      "fact_id": "benchmark_context",
+      "description": "Benchmark context can differ from production behavior.",
+      "aliases": [
+        "benchmark context",
+        "controlled demo",
+        "production difference"
+      ]
+    },
+    {
+      "fact_id": "needs_prod_test",
+      "description": "Latency guarantees require representative load testing.",
+      "aliases": [
+        "representative load testing",
+        "p99 measurement",
+        "production telemetry"
+      ]
+    },
+    {
+      "fact_id": "uncertainty_comms",
+      "description": "Risk communication must include uncertainty and confidence limits.",
+      "aliases": [
+        "uncertainty",
+        "confidence limits",
+        "risk communication"
+      ]
+    }
   ],
-  "comparison_information_mode": "symmetric"
+  "comparison_information_mode": "symmetric",
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_benchmark_context",
+      "description": "Benchmark context can differ from production behavior.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "benchmark_context"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "benchmark context",
+          "controlled demo",
+          "production difference"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_needs_prod_test",
+      "description": "Latency guarantees require representative load testing.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "needs_prod_test"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "representative load testing",
+          "p99 measurement",
+          "production telemetry"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_uncertainty_comms",
+      "description": "Risk communication must include uncertainty and confidence limits.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "uncertainty_comms"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "uncertainty",
+          "confidence limits",
+          "risk communication"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "uncertainty_comms"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "guarantee production p99 from vendor demo alone"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
+  ]
 }
