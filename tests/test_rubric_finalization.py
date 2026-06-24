@@ -156,7 +156,35 @@ def test_mixed_rubric_with_uncertain_rule_is_provisional():
 
     assert scores.score_status == "provisional"
     assert scores.ranking_eligible is False
-    assert scores.human_review_required is False
+    assert scores.human_review_required is True
+
+
+def test_mixed_rubric_deterministic_ready_is_still_human_required_provisional():
+    task = TaskDefinition(
+        id="rubric_mixed_ready",
+        team="general_knowledge",
+        role="fast_worker",
+        prompt="p",
+        verifier="",
+        verification_classification="rubric_assisted",
+        rubric_finalization="mixed",
+        rubric_rules=[
+            {
+                "rule_id": "must_mention",
+                "description": "must mention userspace",
+                "weight": 1.0,
+                "type": "required",
+                "matcher": {"type": "phrase_aliases", "phrases": ["userspace"]},
+            }
+        ],
+    )
+    result = _result(task, "userspace mentioned")
+    scores = score_result(result, "schemas")
+
+    assert scores.score_status == "provisional"
+    assert scores.provisional is True
+    assert scores.ranking_eligible is False
+    assert scores.human_review_required is True
 
 
 def test_only_final_eligible_results_enter_definitive_leaderboard(tmp_path: Path):

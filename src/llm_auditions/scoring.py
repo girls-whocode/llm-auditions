@@ -561,17 +561,15 @@ def score_result(
             result.score_status = "human_required"
             scores.notes.append("Rubric finalization policy: human_review")
         elif finalization_policy == "mixed":
+            scores.provisional = True
+            scores.human_review_required = True
+            scores.ranking_eligible = False
+            scores.score_status = "provisional"
+            result.human_review_required = True
+            result.ranking_eligible = False
+            result.score_status = "provisional"
             if deterministic_ready:
-                scores.provisional = False
-                scores.human_review_required = False
-                scores.ranking_eligible = True
-                scores.score_status = "final"
-            else:
-                scores.provisional = True
-                scores.human_review_required = False
-                scores.ranking_eligible = False
-                scores.score_status = "provisional"
-                result.ranking_eligible = False
+                scores.notes.append("Mixed rubric deterministic signals present; human review still required")
             if unresolved_human_rules:
                 scores.notes.append("Mixed rubric unresolved human-review rules")
         else:

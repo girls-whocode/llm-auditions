@@ -16,13 +16,30 @@ class ContradictionVerifier(BaseVerifier):
 
     name = "contradiction"
 
+    @staticmethod
+    def _expected_contradictions(reference_facts: Any) -> list[str]:
+        # Backward-compatible extraction for both legacy dict and normalized list forms.
+        if isinstance(reference_facts, dict):
+            values = reference_facts.get("expected_contradictions", [])
+            return [str(v) for v in values if str(v).strip()]
+
+        expected: list[str] = []
+        if isinstance(reference_facts, list):
+            for fact in reference_facts:
+                if not isinstance(fact, dict):
+                    continue
+                fact_id = str(fact.get("fact_id", "")).strip().lower()
+                if fact_id in {"expected_contradictions", "contradictions", "expected_conflicts"}:
+                    expected.extend(str(v) for v in (fact.get("expected") or []) if str(v).strip())
+        return expected
+
     def verify(self, task: Any, response: Any) -> VerifierResult:
         content = response.content if hasattr(response, "content") else str(response)
 
         # Expected contradictions from task reference_facts
         expected: list[str] = []
         if hasattr(task, "reference_facts"):
-            expected = task.reference_facts.get("expected_contradictions", [])
+            expected = self._expected_contradictions(task.reference_facts)
 
         if not expected:
             return VerifierResult(
