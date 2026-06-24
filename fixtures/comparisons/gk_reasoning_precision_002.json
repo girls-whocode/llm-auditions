@@ -9,9 +9,103 @@
     "Do not preserve incorrect claims as facts."
   ],
   "required_facts": [
-    "False premises must be corrected explicitly.",
-    "Relative-speed calculation should be numerically consistent.",
-    "Answer quality requires both correctness and clarity."
+    {
+      "fact_id": "premise_correction",
+      "description": "False premises must be corrected explicitly.",
+      "aliases": [
+        "false premise",
+        "correct explicitly",
+        "factual correction"
+      ]
+    },
+    {
+      "fact_id": "numeric_consistency",
+      "description": "Relative-speed calculation should be numerically consistent.",
+      "aliases": [
+        "relative speed",
+        "numeric consistency",
+        "calculation"
+      ]
+    },
+    {
+      "fact_id": "clarity_and_correctness",
+      "description": "Answer quality requires both correctness and clarity.",
+      "aliases": [
+        "clarity",
+        "correctness",
+        "step-by-step"
+      ]
+    }
   ],
-  "comparison_information_mode": "symmetric"
+  "comparison_information_mode": "symmetric",
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_premise_correction",
+      "description": "False premises must be corrected explicitly.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "premise_correction"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "false premise",
+          "correct explicitly",
+          "factual correction"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_numeric_consistency",
+      "description": "Relative-speed calculation should be numerically consistent.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "numeric_consistency"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "relative speed",
+          "numeric consistency",
+          "calculation"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_clarity_and_correctness",
+      "description": "Answer quality requires both correctness and clarity.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "clarity_and_correctness"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "clarity",
+          "correctness",
+          "step-by-step"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "clarity_and_correctness"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "preserve incorrect premise as true"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
+  ]
 }

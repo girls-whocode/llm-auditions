@@ -6,6 +6,7 @@ from pathlib import Path
 
 from llm_auditions.cli import cmd_audit_run
 from llm_auditions.configuration import Configuration
+from llm_auditions.models import ResultIdentity
 
 
 def test_audit_run_reports_findings(tmp_path: Path):
@@ -129,3 +130,147 @@ def test_audit_run_reports_timing_and_rubric_provisional_issues(tmp_path: Path):
     assert "rubric_stuck_provisional" in types
     assert "negative_timing_overhead" in types
     assert "timing_field_inconsistency" in types
+
+
+def test_audit_run_reports_required_pass8_finding_names(tmp_path: Path):
+    run = tmp_path / "run"
+    run.mkdir()
+
+    (run / "run_manifest.json").write_text(
+        json.dumps(
+            {
+                "run_id": "r4",
+                "profile": "smoke",
+                "request_count": 2,
+                "fixture_hashes": {},
+            }
+        )
+    )
+    (run / "task_manifest.json").write_text(json.dumps({"run_id": "r4", "profile": "smoke", "requests": []}))
+    (run / "events.jsonl").write_text(json.dumps({"identity_key": "k4", "status": "completed", "score_status": "final", "ranking_eligible": True}) + "\n")
+
+    out_dir = run / "linux_infrastructure" / "escalation"
+    out_dir.mkdir(parents=True)
+
+    fast_identity = {
+        "team": "linux_infrastructure",
+        "role": "fast_worker",
+        "task_id": "proof_cmp",
+        "task_version": "v1",
+        "model_name": "fast-a",
+        "model_digest": "d-fast",
+        "requested_think_mode": "false",
+        "effective_think_mode": "false",
+        "structured_output_mode": "prompt_only",
+        "temperature": 0.0,
+        "num_ctx": 1024,
+        "num_predict": 128,
+        "system_prompt_hash": "a",
+        "user_prompt_hash": "b",
+        "scenario_content_hash": "hash-a",
+    }
+    fast_key = ResultIdentity.model_validate(fast_identity).key()
+
+    fast = {
+        "identity": fast_identity,
+        "task": {
+            "id": "proof_cmp",
+            "team": "linux_infrastructure",
+            "role": "fast_worker",
+            "comparison_id": "linux_firewall_change_002",
+            "comparison_track": "handoff",
+            "worker_class": "fast",
+            "comparison_scenario_ref": "fixtures/comparisons/linux_firewall_change_002.json",
+            "verification_classification": "rubric_assisted",
+            "rubric_finalization": "mixed",
+            "comparison_shared_rubric_version": "1",
+        },
+        "response": {
+            "content": "fast",
+            "request_payload": {},
+            "effective_prompt": {
+                "prompt_components": {
+                    "scenario_content_hash": "hash-a",
+                    "scenario_version": "1",
+                    "comparison_information_mode": "symmetric",
+                }
+            },
+            "metrics": {},
+        },
+        "verifier_output": {"rubric_rules": [{"rule_id": "requires_backup_rules", "status": "pass"}]},
+        "scores": {"score_status": "final"},
+        "score_status": "final",
+        "ranking_eligible": True,
+        "schema_errors": [],
+    }
+
+    heavy = {
+        "identity": {
+            "team": "linux_infrastructure",
+            "role": "escalation",
+            "task_id": "proof_cmp",
+            "task_version": "v1",
+            "model_name": "heavy-a",
+            "model_digest": "d-heavy",
+            "requested_think_mode": "low",
+            "effective_think_mode": "low",
+            "structured_output_mode": "ollama_schema",
+            "temperature": 0.0,
+            "num_ctx": 1024,
+            "num_predict": 128,
+            "system_prompt_hash": "a",
+            "user_prompt_hash": "b",
+            "handoff_fast_identity_key": fast_key,
+            "handoff_fast_response_hash": "bad-hash",
+            "scenario_content_hash": "hash-b",
+        },
+        "task": {
+            "id": "proof_cmp",
+            "team": "linux_infrastructure",
+            "role": "escalation",
+            "comparison_id": "linux_firewall_change_002",
+            "comparison_track": "handoff",
+            "worker_class": "heavy",
+            "comparison_scenario_ref": "fixtures/comparisons/linux_firewall_change_002.json",
+            "verification_classification": "rubric_assisted",
+            "rubric_finalization": "mixed",
+            "comparison_shared_rubric_version": "999",
+        },
+        "response": {
+            "content": "heavy",
+            "request_payload": {
+                "handoff_payload": {"fast_result_identity": fast_key}
+            },
+            "effective_prompt": {
+                "prompt_components": {
+                    "scenario_content_hash": "hash-b",
+                    "scenario_version": "2",
+                    "comparison_information_mode": "asymmetric",
+                }
+            },
+            "metrics": {},
+        },
+        "verifier_output": {"rubric_rules": [{"rule_id": "only_role_rule", "status": "pass"}]},
+        "scores": {"score_status": "final"},
+        "score_status": "final",
+        "ranking_eligible": True,
+        "schema_errors": [],
+    }
+
+    (out_dir / "fast.result.json").write_text(json.dumps(fast))
+    (out_dir / "heavy.result.json").write_text(json.dumps(heavy))
+
+    rc = cmd_audit_run(argparse.Namespace(run_dir=str(run)), Configuration())
+    audit = json.loads((run / "RUN_AUDIT.json").read_text())
+    types = {f["type"] for f in audit.get("findings", [])}
+
+    assert rc == 1
+    assert "handoff_think_mode_mismatch" in types
+    assert "handoff_output_mode_mismatch" in types
+    assert "handoff_scenario_hash_mismatch" in types
+    assert "handoff_scenario_version_mismatch" in types
+    assert "handoff_information_mode_mismatch" in types
+    assert "comparison_rubric_version_mismatch" in types
+    assert "comparison_shared_rubric_missing" in types
+    assert "comparison_scenario_fixture_untracked" in types
+    assert "mixed_result_incorrectly_final" in types

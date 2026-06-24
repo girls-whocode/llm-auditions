@@ -31,6 +31,39 @@
   comparison_track: independent
   worker_class: fast
   comparison_scenario_ref: fixtures/comparisons/dev_python_correctness_001.json
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: &id001
+  - rule_id: fast_initial_triage
+    description: Provides concise initial triage grounded in the shared scenario.
+    type: required
+    weight: 1.5
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - initial
+      - triage
+      - immediate
+  - rule_id: fast_escalation_decision
+    description: States whether escalation is needed with rationale.
+    type: required
+    weight: 1.5
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - escalate
+      - escalation
+      - no escalation
+  rubric_rules: *id001
+  required_concepts:
+  - empty input
+  - thread-safety
+  - concurrency tests
+  expected_disposition: ANSWER
+  rubric_finalization: human_review
+  rubric_finalization_rationale: Behavioral code execution remains disabled; deterministic rubric checks cannot fully validate
+    implementation quality.
+  criticality: high
 - id: dev_fast_bash_syntax
   team: development
   role: fast_worker
@@ -64,6 +97,39 @@
   comparison_track: handoff
   worker_class: fast
   comparison_scenario_ref: fixtures/comparisons/dev_scripting_reliability_002.json
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: &id002
+  - rule_id: fast_handoff_triage
+    description: Provides concise triage suitable for escalation handoff.
+    type: required
+    weight: 1.5
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - triage
+      - initial diagnosis
+      - immediate checks
+  - rule_id: fast_handoff_decision
+    description: Explicitly signals escalation conditions for heavy worker.
+    type: required
+    weight: 1.5
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - escalate
+      - handoff
+      - upstream context
+  rubric_rules: *id002
+  required_concepts:
+  - validate inputs
+  - parameterized query
+  - reject
+  expected_disposition: ESCALATE_HEAVY
+  rubric_finalization: human_review
+  rubric_finalization_rationale: Behavioral code execution remains disabled; deterministic rubric checks cannot fully validate
+    implementation quality.
+  criticality: high
 - id: dev_fast_subtle_bug
   team: development
   role: fast_worker
@@ -132,6 +198,39 @@
   comparison_track: independent
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/dev_python_correctness_001.json
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: &id003
+  - rule_id: heavy_deeper_diagnosis
+    description: Provides deeper diagnosis beyond initial triage.
+    type: required
+    weight: 1.5
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - deeper analysis
+      - diagnosis
+      - root cause
+  - rule_id: heavy_risk_analysis
+    description: Includes remediation completeness and risk analysis.
+    type: required
+    weight: 1.5
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - risk
+      - rollback
+      - verification
+  rubric_rules: *id003
+  required_concepts:
+  - empty input
+  - thread-safety
+  - concurrency tests
+  expected_disposition: ANSWER
+  rubric_finalization: human_review
+  rubric_finalization_rationale: Behavioral code execution remains disabled; deterministic rubric checks cannot fully validate
+    implementation quality.
+  criticality: high
 - id: dev_code_review_security_flaw
   team: development
   role: code_review
@@ -144,13 +243,14 @@
 
     '
   prompt: Review, correct, and improve the fast worker response using the original scenario.
-  expected_disposition: REJECT
+  expected_disposition: REVISE
   required_json_schema: reviewer_result
   verification_classification: rubric_assisted
-  rubric_finalization: mixed
+  rubric_finalization: human_review
   required_concepts:
-  - SQL injection
-  - parameterized
+  - validate inputs
+  - parameterized query
+  - reject
   temperature: 0
   num_predict: 1024
   think_modes:
@@ -161,36 +261,33 @@
   comparison_track: handoff
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/dev_scripting_reliability_002.json
-  rubric_rules:
-  - rule_id: sqli_reviewer_rejects
-    description: Rejects the vulnerable SQL construction
+  rubric_rules: &id004
+  - rule_id: heavy_corrects_fast
+    description: Corrects or improves fast response when needed.
     type: required
-    weight: 3.0
-    matcher:
-      type: disposition
-      value: REJECT
-  - rule_id: sqli_reviewer_names_vulnerability
-    description: Identifies SQL injection explicitly
-    type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - SQL injection
-      - string interpolation in SQL
-      - unsafe query construction
-  - rule_id: sqli_reviewer_requires_parameterization
-    description: Recommends parameterized queries or prepared statements
+      - correct
+      - improve
+      - revise
+  - rule_id: heavy_preserves_fast_findings
+    description: Preserves correct fast findings while extending depth.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - parameterized
-      - prepared statement
-      - bound parameter
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+      - preserve
+      - carry forward
+      - upstream finding
+  rubric_finalization_rationale: Behavioral code execution remains disabled; deterministic rubric checks cannot fully validate
+    implementation quality.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id004
+  criticality: high
 - id: dev_code_review_approve_correct
   team: development
   role: code_review

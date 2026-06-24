@@ -97,6 +97,9 @@ Validation and `audit-config` treat missing `rubric_finalization` as a blocking 
 Comparison tasks (`comparison_id` + `comparison_track` + `worker_class`) must also declare:
 
 - `comparison_scenario_ref`: path to a shared scenario JSON under `fixtures/comparisons/`
+- `use_shared_scenario_rubric: true`
+- `comparison_shared_rubric_version`
+- `role_rubric_rules`
 
 Both fast and heavy tasks for the same comparison pair must reference the same scenario file.
 Scenario fixtures are authoritative and must include:
@@ -106,7 +109,17 @@ Scenario fixtures are authoritative and must include:
 - `title`
 - `scenario`
 - `constraints`
-- `required_facts`
+- `required_facts` (fact objects with `fact_id`, `description`, `aliases`)
+- `shared_rubric_rules` (with `rule_id`, `source_fact_ids`, and matcher)
+
+Effective comparison scoring is resolved as:
+
+- `shared_rubric_rules` (from scenario fixture)
+- plus `role_rubric_rules` (from task fixture)
+
+`audit-config` rejects comparison tasks when shared rubric linkage is missing,
+when role rules redefine shared rule IDs, when required facts are uncovered,
+or when legacy rubric terms remain in comparison tasks.
 
 The runner computes a content-based `scenario_content_hash` from canonical scenario payloads.
 This hash is propagated into plan rows, task snapshots, run manifests, result identity,
@@ -133,6 +146,20 @@ Each heavy request binds to exactly one planned fast dependency and records:
 - `fast_result_identity`
 - `fast_response_hash`
 - `scenario_content_hash`
+- `handoff_compatibility_key`
+
+Handoff dependency pairing is restricted to fully compatible rows only:
+
+- `comparison_id`
+- `comparison_track`
+- `scenario_content_hash`
+- `scenario_version`
+- `comparison_information_mode`
+- `requested_think_mode`
+- `structured_output_mode`
+- `task_suite_version`
+
+Cross-mode or cross-scenario pairing is disallowed by default (`cross_mode_handoff = false`).
 
 Resume behavior reloads completed fast artifacts from saved `.result.json` outputs.
 If dependency artifacts are missing or inconsistent, dependent heavy execution is refused.
@@ -141,6 +168,16 @@ Escalation reporting rules:
 
 - handoff track: uses only recorded heavy-to-fast dependency identity (no synthetic Cartesian pairing)
 - independent track: allows Cartesian comparison only when scenario hash/version + mode/contract dimensions match
+
+`audition plan` now prints compatibility accounting metrics:
+
+- `base independent requests`
+- `valid handoff fast rows`
+- `valid handoff dependent heavy rows`
+- `cross_think_handoff_dependencies`
+- `cross_output_handoff_dependencies`
+- `cross_scenario_handoff_dependencies`
+- `cross_information_mode_dependencies`
 
 Supported rubric rule types:
 

@@ -9,13 +9,107 @@
     "Distinguish diagnosis steps from remediation actions."
   ],
   "required_facts": [
-    "Isolate or restrict suspicious traffic safely.",
-    "Preserve forensic evidence and timelines.",
-    "Escalate when compromise confidence exceeds initial threshold."
+    {
+      "fact_id": "safe_containment",
+      "description": "Isolate or restrict suspicious traffic safely.",
+      "aliases": [
+        "containment",
+        "restrict egress",
+        "isolate host"
+      ]
+    },
+    {
+      "fact_id": "evidence_preservation",
+      "description": "Preserve forensic evidence and timelines.",
+      "aliases": [
+        "preserve evidence",
+        "timeline",
+        "forensic capture"
+      ]
+    },
+    {
+      "fact_id": "escalation_threshold",
+      "description": "Escalate when compromise confidence exceeds initial threshold.",
+      "aliases": [
+        "escalate incident",
+        "compromise confidence",
+        "forensic escalation"
+      ]
+    }
   ],
   "comparison_information_mode": "asymmetric",
   "expected_escalation_conditions": [
     "Evidence of persistence or lateral movement.",
     "Unclear scope of compromise after initial containment."
+  ],
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_safe_containment",
+      "description": "Isolate or restrict suspicious traffic safely.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "safe_containment"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "containment",
+          "restrict egress",
+          "isolate host"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_evidence_preservation",
+      "description": "Preserve forensic evidence and timelines.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "evidence_preservation"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "preserve evidence",
+          "timeline",
+          "forensic capture"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_escalation_threshold",
+      "description": "Escalate when compromise confidence exceeds initial threshold.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "escalation_threshold"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "escalate incident",
+          "compromise confidence",
+          "forensic escalation"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "escalation_threshold"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "erase host artifacts before triage capture"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
   ]
 }

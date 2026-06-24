@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 
+from .comparisons import load_comparison_scenario
 from .models import RubricRuleType, TaskDefinition
 from .verifiers.evidence import load_valid_ids_from_fixture
 
@@ -68,7 +69,23 @@ def _parse_task(data: dict[str, Any], source_path: Path) -> TaskDefinition:
     if "role" not in data:
         data["role"] = source_path.stem
 
-    return TaskDefinition(**{k: v for k, v in data.items() if k in TaskDefinition.model_fields})
+    item = dict(data)
+    if item.get("comparison_id") and item.get("comparison_scenario_ref"):
+        use_shared = bool(item.get("use_shared_scenario_rubric", True))
+        role_rules = list(item.get("role_rubric_rules") or item.get("rubric_rules") or [])
+        item["use_shared_scenario_rubric"] = use_shared
+        item["role_rubric_rules"] = role_rules
+        if use_shared:
+            scenario = load_comparison_scenario(PROJECT_ROOT, str(item.get("comparison_scenario_ref")))
+            payload = scenario["payload"]
+            shared_rules = list(payload.get("shared_rubric_rules") or [])
+            item["comparison_shared_rubric_version"] = str(payload.get("shared_rubric_version", ""))
+            item["rubric_rules"] = [*shared_rules, *role_rules]
+        else:
+            item.setdefault("comparison_shared_rubric_version", "")
+            item["rubric_rules"] = role_rules
+
+    return TaskDefinition(**{k: v for k, v in item.items() if k in TaskDefinition.model_fields})
 
 
 def filter_tasks(

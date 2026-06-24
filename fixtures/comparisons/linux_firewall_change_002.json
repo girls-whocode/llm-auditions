@@ -9,9 +9,103 @@
     "Avoid recommendations that can lock out remote access."
   ],
   "required_facts": [
-    "Current rules should be backed up before modifications.",
-    "Rollback and verification steps must be explicit.",
-    "Safety controls are mandatory for remote firewall operations."
+    {
+      "fact_id": "backup_rules",
+      "description": "Current rules should be backed up before modifications.",
+      "aliases": [
+        "backup current rules",
+        "iptables-save",
+        "snapshot rules"
+      ]
+    },
+    {
+      "fact_id": "rollback_verify",
+      "description": "Rollback and verification steps must be explicit.",
+      "aliases": [
+        "rollback",
+        "verification commands",
+        "validation"
+      ]
+    },
+    {
+      "fact_id": "remote_safety",
+      "description": "Safety controls are mandatory for remote firewall operations.",
+      "aliases": [
+        "remote lockout risk",
+        "out-of-band access",
+        "safety controls"
+      ]
+    }
   ],
-  "comparison_information_mode": "symmetric"
+  "comparison_information_mode": "symmetric",
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_backup_rules",
+      "description": "Current rules should be backed up before modifications.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "backup_rules"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "backup current rules",
+          "iptables-save",
+          "snapshot rules"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_rollback_verify",
+      "description": "Rollback and verification steps must be explicit.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "rollback_verify"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "rollback",
+          "verification commands",
+          "validation"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_remote_safety",
+      "description": "Safety controls are mandatory for remote firewall operations.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "remote_safety"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "remote lockout risk",
+          "out-of-band access",
+          "safety controls"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "remote_safety"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "apply immediate firewall block without rollback plan"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
+  ]
 }

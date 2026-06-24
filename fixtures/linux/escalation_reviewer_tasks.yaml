@@ -14,8 +14,9 @@
   verification_classification: rubric_assisted
   rubric_finalization: mixed
   required_concepts:
-  - measure
-  - vm.dirty
+  - per-device latency
+  - database waits
+  - avoid speculative tuning
   temperature: 0
   num_predict: 2048
   think_modes:
@@ -26,40 +27,34 @@
   comparison_track: independent
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/linux_ops_safety_001.json
-  rubric_rules:
-  - rule_id: kernel_tuning_mentions_vm_dirty
-    description: Mentions vm.dirty parameters as relevant tuning candidates
+  rubric_rules: &id001
+  - rule_id: heavy_deeper_diagnosis
+    description: Provides deeper diagnosis beyond initial triage.
     type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - vm.dirty
-      - vm.dirty_ratio
-      - vm.dirty_background_ratio
-  - rule_id: kernel_tuning_mentions_measurements
-    description: Requires before-and-after measurement collection
+      - deeper analysis
+      - diagnosis
+      - root cause
+  - rule_id: heavy_risk_analysis
+    description: Includes remediation completeness and risk analysis.
     type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - measure
-      - iostat
-      - vmstat
-      - before and after
-  - rule_id: kernel_tuning_mentions_safe_investigation
-    description: Frames the answer as investigation and tuning, not an unconditional change command
-    type: required
-    weight: 2.0
-    matcher:
-      type: phrase_aliases
-      phrases:
-      - investigate
-      - potentially tuned
-      - test carefully
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+      - risk
+      - rollback
+      - verification
+  rubric_finalization_rationale: Shared rubric gates deterministic safety/fact coverage, while synthesis quality requires
+    mixed finalization.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id001
+  deterministic_override: false
+  criticality: high
 - id: linux_reviewer_command_check
   team: linux_infrastructure
   role: reviewer
@@ -79,8 +74,9 @@
   verification_classification: rubric_assisted
   rubric_finalization: mixed
   required_concepts:
+  - backup current rules
   - rollback
-  - remote
+  - remote lockout risk
   temperature: 0
   num_predict: 512
   think_modes:
@@ -91,33 +87,31 @@
   comparison_track: handoff
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/linux_firewall_change_002.json
-  rubric_rules:
-  - rule_id: firewall_review_revise
-    description: Returns REVISE for the unsafe firewall reset guidance
+  rubric_rules: &id002
+  - rule_id: heavy_corrects_fast
+    description: Corrects or improves fast response when needed.
     type: required
-    weight: 3.0
-    matcher:
-      type: disposition
-      value: REVISE
-  - rule_id: firewall_review_mentions_rollback
-    description: Flags the missing rollback plan
-    type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - rollback
-      - restore previous rules
-      - recovery path
-  - rule_id: firewall_review_mentions_remote_risk
-    description: Flags remote lockout risk when flushing firewall rules
+      - correct
+      - improve
+      - revise
+  - rule_id: heavy_preserves_fast_findings
+    description: Preserves correct fast findings while extending depth.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - remote
-      - lock yourself out
-      - remote access
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+      - preserve
+      - carry forward
+      - upstream finding
+  rubric_finalization_rationale: Shared rubric gates deterministic safety/fact coverage, while synthesis quality requires
+    mixed finalization.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id002
+  deterministic_override: false
+  criticality: high

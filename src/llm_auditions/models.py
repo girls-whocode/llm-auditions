@@ -170,6 +170,7 @@ class RubricRule(BaseModel):
     type: str
     weight: float = 1.0
     requires_human_review: bool = False
+    source_fact_ids: list[str] = Field(default_factory=list)
     matcher: RubricMatcher
 
     @model_validator(mode="before")
@@ -268,6 +269,10 @@ class TaskDefinition(BaseModel):
     verification_classification: str = VerificationClassification.RUBRIC_ASSISTED.value
     schema_name: str = ""
     rubric_rules: list[RubricRule] = Field(default_factory=list)
+    role_rubric_rules: list[RubricRule] = Field(default_factory=list)
+    use_shared_scenario_rubric: bool = False
+    comparison_shared_rubric_version: str = ""
+    deterministic_override: bool = False
     rubric_finalization: str = ""
     rubric_finalization_rationale: str = ""
     rubric_optional_bonus_cap: float = 0.10
@@ -365,6 +370,10 @@ class ResultIdentity(BaseModel):
     handoff_fast_response_hash: str = ""
     comparison_scenario_hash: str = ""
     scenario_content_hash: str = ""
+    scenario_version: str = ""
+    comparison_information_mode: str = ""
+    handoff_compatibility_key: str = ""
+    comparison_shared_rubric_version: str = ""
 
     def key(self, include_effective_mode: bool = True) -> str:
         """Deterministic string key for this identity."""
@@ -391,6 +400,10 @@ class ResultIdentity(BaseModel):
             self.handoff_fast_response_hash,
             self.comparison_scenario_hash,
             self.scenario_content_hash,
+            self.scenario_version,
+            self.comparison_information_mode,
+            self.handoff_compatibility_key,
+            self.comparison_shared_rubric_version,
         ]
         if include_effective_mode:
             parts.append(self.effective_think_mode)
@@ -585,10 +598,14 @@ class PlannedRequest(BaseModel):
     fixture_hashes: dict[str, str] = Field(default_factory=dict)
     comparison_id: str = ""
     comparison_track: str = ""
+    worker_class: str = ""
     comparison_scenario_ref: str = ""
     scenario_version: str = ""
     scenario_content_hash: str = ""
     comparison_information_mode: str = ""
+    comparison_shared_rubric_version: str = ""
+    task_suite_version: str = ""
+    handoff_compatibility_key: str = ""
     fast_plan_row_id: str = ""
 
 
@@ -606,6 +623,9 @@ class TaskSnapshot(BaseModel):
     scenario_version: str = ""
     scenario_content_hash: str = ""
     comparison_information_mode: str = ""
+    comparison_shared_rubric_version: str = ""
+    use_shared_scenario_rubric: bool = False
+    role_rubric_rules: list[dict[str, Any]] = Field(default_factory=list)
     task: dict[str, Any] = Field(default_factory=dict)
 
 

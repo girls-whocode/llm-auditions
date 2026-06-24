@@ -9,9 +9,103 @@
     "Include operational risks during rapid spikes."
   ],
   "required_facts": [
-    "Headroom target changes required replica count.",
-    "Autoscaling lag can violate SLOs during bursts.",
-    "Recommendation must include monitoring and rollback triggers."
+    {
+      "fact_id": "headroom_math",
+      "description": "Headroom target changes required replica count.",
+      "aliases": [
+        "headroom",
+        "replica count",
+        "capacity math"
+      ]
+    },
+    {
+      "fact_id": "scaling_lag",
+      "description": "Autoscaling lag can violate SLOs during bursts.",
+      "aliases": [
+        "autoscaling lag",
+        "burst traffic",
+        "slo risk"
+      ]
+    },
+    {
+      "fact_id": "ops_guards",
+      "description": "Recommendation must include monitoring and rollback triggers.",
+      "aliases": [
+        "monitoring",
+        "rollback trigger",
+        "operational risk"
+      ]
+    }
   ],
-  "comparison_information_mode": "symmetric"
+  "comparison_information_mode": "symmetric",
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_headroom_math",
+      "description": "Headroom target changes required replica count.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "headroom_math"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "headroom",
+          "replica count",
+          "capacity math"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_scaling_lag",
+      "description": "Autoscaling lag can violate SLOs during bursts.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "scaling_lag"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "autoscaling lag",
+          "burst traffic",
+          "slo risk"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_ops_guards",
+      "description": "Recommendation must include monitoring and rollback triggers.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "ops_guards"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "monitoring",
+          "rollback trigger",
+          "operational risk"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "ops_guards"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "ignore headroom target in recommendation"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
+  ]
 }

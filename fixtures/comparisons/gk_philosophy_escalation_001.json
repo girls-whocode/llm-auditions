@@ -9,9 +9,103 @@
     "State unresolved ambiguities and what additional context would narrow them."
   ],
   "required_facts": [
-    "Both frameworks should be analyzed with explicit conflict conditions.",
-    "Decision procedures must mention uncertainty handling.",
-    "Output quality depends on structured synthesis, not isolated definitions."
+    {
+      "fact_id": "framework_conflict",
+      "description": "Both frameworks should be analyzed with explicit conflict conditions.",
+      "aliases": [
+        "kantian",
+        "utilitarian",
+        "conflict conditions"
+      ]
+    },
+    {
+      "fact_id": "uncertainty_handling",
+      "description": "Decision procedures must mention uncertainty handling.",
+      "aliases": [
+        "moral uncertainty",
+        "decision procedure",
+        "uncertainty handling"
+      ]
+    },
+    {
+      "fact_id": "structured_synthesis",
+      "description": "Output quality depends on structured synthesis, not isolated definitions.",
+      "aliases": [
+        "structured synthesis",
+        "comparative analysis",
+        "governance guidance"
+      ]
+    }
   ],
-  "comparison_information_mode": "symmetric"
+  "comparison_information_mode": "symmetric",
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_framework_conflict",
+      "description": "Both frameworks should be analyzed with explicit conflict conditions.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "framework_conflict"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "kantian",
+          "utilitarian",
+          "conflict conditions"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_uncertainty_handling",
+      "description": "Decision procedures must mention uncertainty handling.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "uncertainty_handling"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "moral uncertainty",
+          "decision procedure",
+          "uncertainty handling"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_structured_synthesis",
+      "description": "Output quality depends on structured synthesis, not isolated definitions.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "structured_synthesis"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "structured synthesis",
+          "comparative analysis",
+          "governance guidance"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "structured_synthesis"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "provide isolated definitions without synthesis"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
+  ]
 }

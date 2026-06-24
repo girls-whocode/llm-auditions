@@ -9,9 +9,104 @@
     "Include rollback considerations."
   ],
   "required_facts": [
-    "Inspect per-device latency and queue depth.",
-    "Compare database waits with storage telemetry.",
-    "Do not recommend speculative kernel tuning before measurement."
+    {
+      "fact_id": "device_latency",
+      "description": "Inspect per-device latency and queue depth.",
+      "aliases": [
+        "per-device latency",
+        "device await",
+        "queue depth"
+      ]
+    },
+    {
+      "fact_id": "db_storage_correlation",
+      "description": "Compare database waits with storage telemetry.",
+      "aliases": [
+        "database waits",
+        "storage telemetry",
+        "iowait correlation"
+      ]
+    },
+    {
+      "fact_id": "no_speculative_tuning",
+      "description": "Do not recommend speculative kernel tuning before measurement.",
+      "aliases": [
+        "avoid speculative tuning",
+        "measure first",
+        "no immediate kernel tuning"
+      ]
+    }
   ],
-  "comparison_information_mode": "symmetric"
+  "comparison_information_mode": "symmetric",
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_device_latency",
+      "description": "Inspect per-device latency and queue depth.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "device_latency"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "per-device latency",
+          "device await",
+          "queue depth"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_db_storage_correlation",
+      "description": "Compare database waits with storage telemetry.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "db_storage_correlation"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "database waits",
+          "storage telemetry",
+          "iowait correlation"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_no_speculative_tuning",
+      "description": "Do not recommend speculative kernel tuning before measurement.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "no_speculative_tuning"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "avoid speculative tuning",
+          "measure first",
+          "no immediate kernel tuning"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "no_speculative_tuning"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "change vm.dirty_ratio immediately",
+          "change vm.dirty_background_ratio immediately"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
+  ]
 }

@@ -9,9 +9,103 @@
     "Describe audit and rotation controls for the service account."
   ],
   "required_facts": [
-    "Backup workflows can usually run with read or backup-specific rights.",
-    "Administrative or destructive privileges increase blast radius.",
-    "Credential hygiene and auditing are part of the control set."
+    {
+      "fact_id": "minimal_backup_rights",
+      "description": "Backup workflows can usually run with read or backup-specific rights.",
+      "aliases": [
+        "least privilege",
+        "read-only backup",
+        "backup-specific rights"
+      ]
+    },
+    {
+      "fact_id": "avoid_admin_privs",
+      "description": "Administrative or destructive privileges increase blast radius.",
+      "aliases": [
+        "no admin privileges",
+        "blast radius",
+        "forbid destructive rights"
+      ]
+    },
+    {
+      "fact_id": "audit_rotation_controls",
+      "description": "Credential hygiene and auditing are part of the control set.",
+      "aliases": [
+        "credential rotation",
+        "auditing",
+        "access logging"
+      ]
+    }
   ],
-  "comparison_information_mode": "symmetric"
+  "comparison_information_mode": "symmetric",
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_minimal_backup_rights",
+      "description": "Backup workflows can usually run with read or backup-specific rights.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "minimal_backup_rights"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "least privilege",
+          "read-only backup",
+          "backup-specific rights"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_avoid_admin_privs",
+      "description": "Administrative or destructive privileges increase blast radius.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "avoid_admin_privs"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "no admin privileges",
+          "blast radius",
+          "forbid destructive rights"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_audit_rotation_controls",
+      "description": "Credential hygiene and auditing are part of the control set.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "audit_rotation_controls"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "credential rotation",
+          "auditing",
+          "access logging"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "audit_rotation_controls"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "grant broad administrative privileges for backups"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
+  ]
 }

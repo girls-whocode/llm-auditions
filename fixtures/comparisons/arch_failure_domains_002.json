@@ -9,13 +9,109 @@
     "Avoid claiming resilience that is not evidenced by topology details."
   ],
   "required_facts": [
-    "Load balancer, app tier, and database tier are distinct domains.",
-    "Database primary/standby behavior must be analyzed for failover lag and split-brain risk.",
-    "Recovery guidance should include verification and rollback conditions."
+    {
+      "fact_id": "domain_separation",
+      "description": "Load balancer, app tier, and database tier are distinct domains.",
+      "aliases": [
+        "failure domain",
+        "load balancer",
+        "app tier",
+        "database tier"
+      ]
+    },
+    {
+      "fact_id": "db_failover_risk",
+      "description": "Database primary/standby behavior must be analyzed for failover lag and split-brain risk.",
+      "aliases": [
+        "failover lag",
+        "split-brain",
+        "primary/standby"
+      ]
+    },
+    {
+      "fact_id": "recovery_controls",
+      "description": "Recovery guidance should include verification and rollback conditions.",
+      "aliases": [
+        "verification",
+        "rollback",
+        "recovery conditions"
+      ]
+    }
   ],
   "comparison_information_mode": "symmetric",
   "expected_escalation_conditions": [
     "Cross-tier cascading failures require deeper review.",
     "Unclear failover orchestration requires specialist escalation."
+  ],
+  "shared_rubric_version": "1",
+  "shared_rubric_rules": [
+    {
+      "rule_id": "requires_domain_separation",
+      "description": "Load balancer, app tier, and database tier are distinct domains.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "domain_separation"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "failure domain",
+          "load balancer",
+          "app tier",
+          "database tier"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_db_failover_risk",
+      "description": "Database primary/standby behavior must be analyzed for failover lag and split-brain risk.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "db_failover_risk"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "failover lag",
+          "split-brain",
+          "primary/standby"
+        ]
+      }
+    },
+    {
+      "rule_id": "requires_recovery_controls",
+      "description": "Recovery guidance should include verification and rollback conditions.",
+      "type": "required",
+      "weight": 2.0,
+      "source_fact_ids": [
+        "recovery_controls"
+      ],
+      "matcher": {
+        "type": "phrase_aliases",
+        "phrases": [
+          "verification",
+          "rollback",
+          "recovery conditions"
+        ]
+      }
+    },
+    {
+      "rule_id": "constraint_safety_guard",
+      "description": "Rejects recommendations that violate scenario safety constraints.",
+      "type": "hard_gate",
+      "weight": 3.0,
+      "source_fact_ids": [
+        "recovery_controls"
+      ],
+      "matcher": {
+        "type": "forbidden_claim",
+        "phrases": [
+          "claim full resilience without topology evidence"
+        ],
+        "allow_negated_mentions": true
+      }
+    }
   ]
 }

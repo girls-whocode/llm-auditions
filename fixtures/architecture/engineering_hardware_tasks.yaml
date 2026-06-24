@@ -73,7 +73,7 @@
 
     '
   prompt: Provide a concise initial diagnosis, immediate safe checks, and whether escalation is needed.
-  expected_disposition: ANSWER
+  expected_disposition: ESCALATE_HEAVY
   required_json_schema: worker_result
   verification_classification: rubric_assisted
   rubric_finalization: deterministic
@@ -90,33 +90,37 @@
   comparison_track: handoff
   worker_class: fast
   comparison_scenario_ref: fixtures/comparisons/eng_capacity_reasoning_002.json
-  rubric_rules:
-  - rule_id: power_total_peak_correct
-    description: Identifies the 20 kW total server load
+  rubric_rules: &id001
+  - rule_id: fast_handoff_triage
+    description: Provides concise triage suitable for escalation handoff.
     type: required
-    weight: 3.0
-    matcher:
-      type: reference_fact
-      fact_id: total_peak_watts
-  - rule_id: power_capacity_ratio_correct
-    description: Computes the 0.8 utilization ratio against a 25 kW UPS
-    type: required
-    weight: 3.0
-    matcher:
-      type: numeric_tolerance
-      expected_value: 0.8
-      tolerance: 0.01
-  - rule_id: power_mentions_peak_risk
-    description: Discusses risk if all servers peak simultaneously
-    type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - simultaneously
-      - peak load
-      - headroom
-      - UPS margin
+      - triage
+      - initial diagnosis
+      - immediate checks
+  - rule_id: fast_handoff_decision
+    description: Explicitly signals escalation conditions for heavy worker.
+    type: required
+    weight: 1.5
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - escalate
+      - handoff
+      - upstream context
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id001
+  required_concepts:
+  - headroom
+  - autoscaling lag
+  - monitoring
+  rubric_finalization_rationale: ''
+  deterministic_override: false
+  criticality: high
 - id: eng_hw_reviewer_overclaim
   team: engineering_hardware
   role: reviewer
@@ -134,8 +138,9 @@
   verification_classification: rubric_assisted
   rubric_finalization: mixed
   required_concepts:
-  - benchmark
-  - actual
+  - headroom
+  - autoscaling lag
+  - monitoring
   temperature: 0
   num_predict: 512
   think_modes:
@@ -146,34 +151,31 @@
   comparison_track: handoff
   worker_class: heavy
   comparison_scenario_ref: fixtures/comparisons/eng_capacity_reasoning_002.json
-  rubric_rules:
-  - rule_id: gpu_reviewer_verdict_revise
-    description: Returns REVISE for the unsupported GPU timing claim
+  rubric_rules: &id002
+  - rule_id: heavy_corrects_fast
+    description: Corrects or improves fast response when needed.
     type: required
-    weight: 2.0
-    matcher:
-      type: disposition
-      value: REVISE
-  - rule_id: gpu_reviewer_flags_overprecision
-    description: Flags the exact 0.1 second claim as unjustified overprecision
-    type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - exactly 0.1 seconds
-      - measurement data
-      - benchmark
-  - rule_id: gpu_reviewer_mentions_workload_factors
-    description: Mentions workload-dependent factors such as batch size or model shape
+      - correct
+      - improve
+      - revise
+  - rule_id: heavy_preserves_fast_findings
+    description: Preserves correct fast findings while extending depth.
     type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - batch size
-      - model architecture
-      - tensor precision
-      - actual workload
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+      - preserve
+      - carry forward
+      - upstream finding
+  rubric_finalization_rationale: Shared rubric gates deterministic safety/fact coverage, while synthesis quality requires
+    mixed finalization.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id002
+  deterministic_override: false
+  criticality: high

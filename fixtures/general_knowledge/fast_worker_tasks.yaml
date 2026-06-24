@@ -71,37 +71,37 @@
   comparison_track: handoff
   worker_class: fast
   comparison_scenario_ref: fixtures/comparisons/gk_philosophy_escalation_001.json
-  rubric_rules:
-  - rule_id: philosophy_escalates_heavy
-    description: Escalates the deep philosophical comparison to a heavy worker
+  rubric_rules: &id001
+  - rule_id: fast_handoff_triage
+    description: Provides concise triage suitable for escalation handoff.
     type: required
-    weight: 3.0
-    matcher:
-      type: disposition
-      value: ESCALATE_HEAVY
-  - rule_id: philosophy_scope_explanation
-    description: Explains that the request requires deep multi-step analysis
-    type: required
-    weight: 2.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - requires deep multi-step analysis
-      - better suited to a heavy worker
-      - needs a more detailed comparative analysis
-  - rule_id: philosophy_no_compressed_answer
-    description: Does not answer the philosophical analysis directly
-    type: hard_gate
-    weight: 4.0
+      - triage
+      - initial diagnosis
+      - immediate checks
+  - rule_id: fast_handoff_decision
+    description: Explicitly signals escalation conditions for heavy worker.
+    type: required
+    weight: 1.5
     matcher:
-      type: forbidden_claim
+      type: phrase_aliases
       phrases:
-      - Kantian deontology
-      - Millian utilitarianism
-      allow_negated_mentions: true
+      - escalate
+      - handoff
+      - upstream context
   criticality: high
-  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
-    remains reviewer-dependent.'
+  rubric_finalization_rationale: Scenario compliance can be gated deterministically, but escalation quality remains mixed.
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id001
+  required_concepts:
+  - kantian
+  - moral uncertainty
+  - structured synthesis
+  deterministic_override: false
 - id: gk_fast_research_boundary
   team: general_knowledge
   role: fast_worker
@@ -184,34 +184,37 @@
   comparison_track: independent
   worker_class: fast
   comparison_scenario_ref: fixtures/comparisons/gk_reasoning_precision_002.json
-  rubric_rules:
-  - rule_id: einstein_answer_disposition
-    description: Uses ANSWER while correcting the premise
+  rubric_rules: &id002
+  - rule_id: fast_initial_triage
+    description: Provides concise initial triage grounded in the shared scenario.
     type: required
-    weight: 1.0
-    matcher:
-      type: disposition
-      value: ANSWER
-  - rule_id: einstein_corrects_premise
-    description: States that Einstein did not fail his university entrance exams in the claimed way
-    type: required
-    weight: 3.0
+    weight: 1.5
     matcher:
       type: phrase_aliases
       phrases:
-      - Einstein did not fail his university entrance exams
-      - that premise is incorrect
-      - Einstein was admitted after correcting early deficiencies
-  - rule_id: einstein_forbidden_false_claim
-    description: Does not repeat the false failed-exams claim as fact
-    type: hard_gate
-    weight: 4.0
+      - initial
+      - triage
+      - immediate
+  - rule_id: fast_escalation_decision
+    description: States whether escalation is needed with rationale.
+    type: required
+    weight: 1.5
     matcher:
-      type: forbidden_claim
+      type: phrase_aliases
       phrases:
-      - failed his university entrance exams
-      allow_negated_mentions: true
+      - escalate
+      - escalation
+      - no escalation
   criticality: high
+  use_shared_scenario_rubric: true
+  comparison_shared_rubric_version: '1'
+  role_rubric_rules: *id002
+  required_concepts:
+  - false premise
+  - relative speed
+  - clarity
+  rubric_finalization_rationale: ''
+  deterministic_override: false
 - id: gk_fast_restraint_concise
   team: general_knowledge
   role: fast_worker

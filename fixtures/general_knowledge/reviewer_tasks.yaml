@@ -1,225 +1,245 @@
-  - id: gk_review_approve_correct_answer
-    team: general_knowledge
-    role: reviewer
-    category: reviewer_quality
-    smoke: true
-    system_prompt: |
-      You are a reviewer. Evaluate the worker answer and return a JSON reviewer response.
-      Respond only with the JSON object.
-      Schema: {"verdict":"APPROVE","correctness_risk":"LOW","completeness":"COMPLETE",
-               "target":"NONE","issues":[],"revision_instructions":[]}
-      Verdicts: APPROVE, REVISE, ESCALATE_HEAVY, RESEARCH_REQUIRED, SPECIALIST_REROUTE, REJECT
-    prompt: |
-      Worker answer to review:
-      {"disposition": "ANSWER", "target": "NONE", "confidence": "HIGH",
-       "answer": "The speed of light in a vacuum is approximately 299,792,458 metres per second.",
-       "assumptions": [], "limitations": [], "research_required": false}
+- id: gk_review_approve_correct_answer
+  team: general_knowledge
+  role: reviewer
+  category: reviewer_quality
+  smoke: true
+  system_prompt: "You are a reviewer. Evaluate the worker answer and return a JSON reviewer response.\nRespond only with the\
+    \ JSON object.\nSchema: {\"verdict\":\"APPROVE\",\"correctness_risk\":\"LOW\",\"completeness\":\"COMPLETE\",\n       \
+    \  \"target\":\"NONE\",\"issues\":[],\"revision_instructions\":[]}\nVerdicts: APPROVE, REVISE, ESCALATE_HEAVY, RESEARCH_REQUIRED,\
+    \ SPECIALIST_REROUTE, REJECT\n"
+  prompt: "Worker answer to review:\n{\"disposition\": \"ANSWER\", \"target\": \"NONE\", \"confidence\": \"HIGH\",\n \"answer\"\
+    : \"The speed of light in a vacuum is approximately 299,792,458 metres per second.\",\n \"assumptions\": [], \"limitations\"\
+    : [], \"research_required\": false}\n\nOriginal question: \"What is the speed of light?\"\n"
+  expected_disposition: APPROVE
+  required_json_schema: reviewer_result
+  verification_classification: rubric_assisted
+  rubric_finalization: mixed
+  temperature: 0
+  num_predict: 512
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.5
+  rubric_rules:
+  - rule_id: speed_of_light_approve
+    description: Approves the correct factual answer
+    type: required
+    weight: 3.0
+    matcher:
+      type: disposition
+      value: APPROVE
+  - rule_id: speed_of_light_low_risk
+    description: Marks the answer as low correctness risk or complete
+    type: required
+    weight: 2.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - LOW
+      - COMPLETE
+      - factually correct
+  rubric_finalization_rationale: Deterministic checks cover objective gates, but holistic analytical quality requires mixed
+    finalization.
+  deterministic_override: false
+- id: gk_review_reject_fabricated_answer
+  team: general_knowledge
+  role: reviewer
+  category: reviewer_quality
+  smoke: true
+  description: Reviewer must reject a worker answer that fabricates a citation
+  system_prompt: 'You are a reviewer. Evaluate the worker answer and return a JSON reviewer response.
 
-      Original question: "What is the speed of light?"
-    expected_disposition: APPROVE
-    required_json_schema: reviewer_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 512
-    think_modes: ["false"]
-    verifier: structure
-    weight: 1.5
-    rubric_rules:
-      - rule_id: speed_of_light_approve
-        description: Approves the correct factual answer
-        type: required
-        weight: 3.0
-        matcher:
-          type: disposition
-          value: APPROVE
-      - rule_id: speed_of_light_low_risk
-        description: Marks the answer as low correctness risk or complete
-        type: required
-        weight: 2.0
-        matcher:
-          type: phrase_aliases
-          phrases: ["LOW", "COMPLETE", "factually correct"]
+    Reject answers that contain fabricated references or unsupported claims.
 
-  - id: gk_review_reject_fabricated_answer
-    team: general_knowledge
-    role: reviewer
-    category: reviewer_quality
-    smoke: true
-    description: "Reviewer must reject a worker answer that fabricates a citation"
-    system_prompt: |
-      You are a reviewer. Evaluate the worker answer and return a JSON reviewer response.
-      Reject answers that contain fabricated references or unsupported claims.
-    prompt: |
-      Worker answer to review:
-      {"disposition": "ANSWER", "target": "NONE", "confidence": "HIGH",
-       "answer": "According to the 2023 Stanford AI Safety Report (DOI 10.1145/999999),
-                  GPT-5 achieved human-level performance on all benchmark tasks.",
-       "assumptions": [], "limitations": [], "research_required": false}
+    '
+  prompt: "Worker answer to review:\n{\"disposition\": \"ANSWER\", \"target\": \"NONE\", \"confidence\": \"HIGH\",\n \"answer\"\
+    : \"According to the 2023 Stanford AI Safety Report (DOI 10.1145/999999),\n            GPT-5 achieved human-level performance\
+    \ on all benchmark tasks.\",\n \"assumptions\": [], \"limitations\": [], \"research_required\": false}\n\nOriginal question:\
+    \ \"Has any AI system achieved human-level general intelligence?\"\n"
+  expected_disposition: REJECT
+  required_json_schema: reviewer_result
+  verification_classification: rubric_assisted
+  rubric_finalization: mixed
+  temperature: 0
+  num_predict: 512
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.5
+  rubric_rules:
+  - rule_id: fabricated_answer_reject
+    description: Rejects the fabricated answer outright
+    type: required
+    weight: 3.0
+    matcher:
+      type: disposition
+      value: REJECT
+  - rule_id: fabricated_answer_names_fake_reference
+    description: Identifies the fake DOI or unsupported GPT-5 claim
+    type: required
+    weight: 3.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - 10.1145/999999
+      - fabricated reference
+      - unsupported GPT-5 claim
+  - rule_id: fabricated_answer_forbids_approval
+    description: Does not approve a fabricated citation
+    type: hard_gate
+    weight: 4.0
+    matcher:
+      type: forbidden_claim
+      phrases:
+      - APPROVE
+      allow_negated_mentions: true
+  criticality: high
+  rubric_finalization_rationale: Deterministic checks cover objective gates, but holistic analytical quality requires mixed
+    finalization.
+  deterministic_override: false
+- id: gk_review_approve_correct_wording
+  team: general_knowledge
+  role: reviewer
+  category: reviewer_quality
+  smoke: false
+  description: Reviewer must approve a correct but oddly worded answer without rewriting it
+  system_prompt: 'You are a reviewer. Return a JSON reviewer response.
 
-      Original question: "Has any AI system achieved human-level general intelligence?"
-    expected_disposition: REJECT
-    required_json_schema: reviewer_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 512
-    think_modes: ["false"]
-    verifier: structure
-    weight: 1.5
-    rubric_rules:
-      - rule_id: fabricated_answer_reject
-        description: Rejects the fabricated answer outright
-        type: required
-        weight: 3.0
-        matcher:
-          type: disposition
-          value: REJECT
-      - rule_id: fabricated_answer_names_fake_reference
-        description: Identifies the fake DOI or unsupported GPT-5 claim
-        type: required
-        weight: 3.0
-        matcher:
-          type: phrase_aliases
-          phrases: ["10.1145/999999", "fabricated reference", "unsupported GPT-5 claim"]
-      - rule_id: fabricated_answer_forbids_approval
-        description: Does not approve a fabricated citation
-        type: hard_gate
-        weight: 4.0
-        matcher:
-          type: forbidden_claim
-          phrases: ["APPROVE"]
-          allow_negated_mentions: true
-    criticality: high
+    Approve correct answers even if you would use different wording.
 
-  - id: gk_review_approve_correct_wording
-    team: general_knowledge
-    role: reviewer
-    category: reviewer_quality
-    smoke: false
-    description: "Reviewer must approve a correct but oddly worded answer without rewriting it"
-    system_prompt: |
-      You are a reviewer. Return a JSON reviewer response.
-      Approve correct answers even if you would use different wording.
-    prompt: |
-      Worker answer to review:
-      {"disposition": "ANSWER", "target": "NONE", "confidence": "HIGH",
-       "answer": "Water boiling — this happens at 100 degrees C at sea level, standard pressure.",
-       "assumptions": ["standard atmospheric pressure"], "limitations": [], "research_required": false}
+    '
+  prompt: "Worker answer to review:\n{\"disposition\": \"ANSWER\", \"target\": \"NONE\", \"confidence\": \"HIGH\",\n \"answer\"\
+    : \"Water boiling \u2014 this happens at 100 degrees C at sea level, standard pressure.\",\n \"assumptions\": [\"standard\
+    \ atmospheric pressure\"], \"limitations\": [], \"research_required\": false}\n\nOriginal question: \"At what temperature\
+    \ does water boil at sea level?\"\n"
+  expected_disposition: APPROVE
+  required_json_schema: reviewer_result
+  verification_classification: rubric_assisted
+  rubric_finalization: mixed
+  temperature: 0
+  num_predict: 512
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.0
+  rubric_rules:
+  - rule_id: boiling_reviewer_approves
+    description: Approves the answer despite unusual wording
+    type: required
+    weight: 3.0
+    matcher:
+      type: disposition
+      value: APPROVE
+  - rule_id: boiling_reviewer_accepts_correct_assumption
+    description: Accepts standard atmospheric pressure as a reasonable assumption
+    type: required
+    weight: 2.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - standard atmospheric pressure
+      - factually correct
+      - odd wording but correct
+  rubric_finalization_rationale: Deterministic checks cover objective gates, but holistic analytical quality requires mixed
+    finalization.
+  deterministic_override: false
+- id: gk_review_research_required
+  team: general_knowledge
+  role: reviewer
+  category: reviewer_quality
+  smoke: false
+  description: Reviewer must escalate to research when worker answer depends on current data
+  system_prompt: 'You are a reviewer. Return a JSON reviewer response.
 
-      Original question: "At what temperature does water boil at sea level?"
-    expected_disposition: APPROVE
-    required_json_schema: reviewer_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 512
-    think_modes: ["false"]
-    verifier: structure
-    weight: 1.0
-    rubric_rules:
-      - rule_id: boiling_reviewer_approves
-        description: Approves the answer despite unusual wording
-        type: required
-        weight: 3.0
-        matcher:
-          type: disposition
-          value: APPROVE
-      - rule_id: boiling_reviewer_accepts_correct_assumption
-        description: Accepts standard atmospheric pressure as a reasonable assumption
-        type: required
-        weight: 2.0
-        matcher:
-          type: phrase_aliases
-          phrases: ["standard atmospheric pressure", "factually correct", "odd wording but correct"]
+    Request research for answers that require current information.
 
-  - id: gk_review_research_required
-    team: general_knowledge
-    role: reviewer
-    category: reviewer_quality
-    smoke: false
-    description: "Reviewer must escalate to research when worker answer depends on current data"
-    system_prompt: |
-      You are a reviewer. Return a JSON reviewer response.
-      Request research for answers that require current information.
-    prompt: |
-      Worker answer to review:
-      {"disposition": "ANSWER", "target": "NONE", "confidence": "HIGH",
-       "answer": "The current unemployment rate in the United States is 3.7%.",
-       "assumptions": [], "limitations": [], "research_required": false}
+    '
+  prompt: "Worker answer to review:\n{\"disposition\": \"ANSWER\", \"target\": \"NONE\", \"confidence\": \"HIGH\",\n \"answer\"\
+    : \"The current unemployment rate in the United States is 3.7%.\",\n \"assumptions\": [], \"limitations\": [], \"research_required\"\
+    : false}\n\nOriginal question: \"What is the current US unemployment rate?\"\n"
+  expected_disposition: RESEARCH_REQUIRED
+  required_json_schema: reviewer_result
+  verification_classification: rubric_assisted
+  rubric_finalization: mixed
+  temperature: 0
+  num_predict: 512
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.0
+  rubric_rules:
+  - rule_id: unemployment_research_required
+    description: Sends the current-data claim to research review
+    type: required
+    weight: 3.0
+    matcher:
+      type: disposition
+      value: RESEARCH_REQUIRED
+  - rule_id: unemployment_mentions_current_data
+    description: Flags that the answer depends on current data
+    type: required
+    weight: 2.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - current
+      - up-to-date
+      - needs live data
+  - rule_id: unemployment_forbids_approval
+    description: Does not approve an answer that asserts a current rate without sourcing
+    type: hard_gate
+    weight: 4.0
+    matcher:
+      type: forbidden_claim
+      phrases:
+      - APPROVE
+      allow_negated_mentions: true
+  criticality: high
+  rubric_finalization_rationale: Deterministic checks cover objective gates, but holistic analytical quality requires mixed
+    finalization.
+  deterministic_override: false
+- id: gk_review_revise_incomplete
+  team: general_knowledge
+  role: reviewer
+  category: reviewer_quality
+  smoke: false
+  description: Reviewer must request revision on an incomplete but partially correct answer
+  system_prompt: 'You are a reviewer. Return a JSON reviewer response.
 
-      Original question: "What is the current US unemployment rate?"
-    expected_disposition: RESEARCH_REQUIRED
-    required_json_schema: reviewer_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 512
-    think_modes: ["false"]
-    verifier: structure
-    weight: 1.0
-    rubric_rules:
-      - rule_id: unemployment_research_required
-        description: Sends the current-data claim to research review
-        type: required
-        weight: 3.0
-        matcher:
-          type: disposition
-          value: RESEARCH_REQUIRED
-      - rule_id: unemployment_mentions_current_data
-        description: Flags that the answer depends on current data
-        type: required
-        weight: 2.0
-        matcher:
-          type: phrase_aliases
-          phrases: ["current", "up-to-date", "needs live data"]
-      - rule_id: unemployment_forbids_approval
-        description: Does not approve an answer that asserts a current rate without sourcing
-        type: hard_gate
-        weight: 4.0
-        matcher:
-          type: forbidden_claim
-          phrases: ["APPROVE"]
-          allow_negated_mentions: true
-    criticality: high
+    Request revisions for answers that are incomplete.
 
-  - id: gk_review_revise_incomplete
-    team: general_knowledge
-    role: reviewer
-    category: reviewer_quality
-    smoke: false
-    description: "Reviewer must request revision on an incomplete but partially correct answer"
-    system_prompt: |
-      You are a reviewer. Return a JSON reviewer response.
-      Request revisions for answers that are incomplete.
-    prompt: |
-      Worker answer to review:
-      {"disposition": "ANSWER", "target": "NONE", "confidence": "HIGH",
-       "answer": "DNA is made of nucleotides.",
-       "assumptions": [], "limitations": [], "research_required": false}
-
-      Original question: "Explain the structure of DNA and how it stores genetic information."
-    expected_disposition: REVISE
-    required_json_schema: reviewer_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 512
-    think_modes: ["false"]
-    verifier: structure
-    weight: 1.0
-    rubric_rules:
-      - rule_id: dna_reviewer_revise
-        description: Requests revision for the incomplete DNA answer
-        type: required
-        weight: 3.0
-        matcher:
-          type: disposition
-          value: REVISE
-      - rule_id: dna_reviewer_names_missing_content
-        description: Notes that the answer omits DNA structure or information storage
-        type: required
-        weight: 2.0
-        matcher:
-          type: phrase_aliases
-          phrases: ["double helix", "stores genetic information", "incomplete"]
+    '
+  prompt: "Worker answer to review:\n{\"disposition\": \"ANSWER\", \"target\": \"NONE\", \"confidence\": \"HIGH\",\n \"answer\"\
+    : \"DNA is made of nucleotides.\",\n \"assumptions\": [], \"limitations\": [], \"research_required\": false}\n\nOriginal\
+    \ question: \"Explain the structure of DNA and how it stores genetic information.\"\n"
+  expected_disposition: REVISE
+  required_json_schema: reviewer_result
+  verification_classification: rubric_assisted
+  rubric_finalization: mixed
+  temperature: 0
+  num_predict: 512
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.0
+  rubric_rules:
+  - rule_id: dna_reviewer_revise
+    description: Requests revision for the incomplete DNA answer
+    type: required
+    weight: 3.0
+    matcher:
+      type: disposition
+      value: REVISE
+  - rule_id: dna_reviewer_names_missing_content
+    description: Notes that the answer omits DNA structure or information storage
+    type: required
+    weight: 2.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - double helix
+      - stores genetic information
+      - incomplete
+  rubric_finalization_rationale: Deterministic checks cover objective gates, but holistic analytical quality requires mixed
+    finalization.
+  deterministic_override: false
