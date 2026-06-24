@@ -82,13 +82,31 @@ Rubric-assisted tasks must carry **human-authored `rubric_rules` in fixture YAML
 The framework no longer synthesizes fallback rubrics from prompts, required concepts,
 or other task text at runtime.
 
-Rubric-assisted tasks should also declare `rubric_finalization`:
+Rubric-assisted tasks must explicitly declare `rubric_finalization` in YAML:
 
 - `deterministic`: produces `final` when all rubric checks are deterministic and resolved.
 - `human_review`: always produces `human_required`.
 - `mixed`: remains `provisional` while unresolved human-review rubric rules exist.
 
 Optional rubric rules use **bonus semantics** and do not reduce the base denominator when absent.
+
+Validation and `audit-config` treat missing `rubric_finalization` as a blocking defect.
+
+## Shared Comparison Scenarios
+
+Comparison tasks (`comparison_id` + `comparison_track` + `worker_class`) must also declare:
+
+- `comparison_scenario_ref`: path to a shared scenario JSON under `fixtures/comparisons/`
+
+Both fast and heavy tasks for the same comparison pair must reference the same scenario file.
+`audit-config` enforces:
+
+- missing comparison scenario references
+- missing scenario files
+- scenario file mismatches (`comparison_id` or `track` mismatch)
+
+Handoff comparisons execute real fast-to-heavy transfer in `run_plan_rows`.
+Heavy requests include the executed fast response payload plus provenance hashes.
 
 Supported rubric rule types:
 
@@ -223,6 +241,7 @@ Timing metrics are reported separately using Ollama durations and local wall-clo
 - `wall_clock_seconds`, `overhead_seconds`
 
 Escalation output is matrix-expanded by candidate combinations and mode/version keys.
+Handoff rows include transferred payload context and are keyed by shared scenario identity.
 
 ### Package results
 
@@ -246,6 +265,9 @@ Immutable during resume:
 - `environment.json`
 - `model_inventory.json`
 - `task_manifest.json`
+
+`run_manifest.json` now includes `execution_source_hashes` for engine/scoring/verifier/report modules.
+Resume and `audit-run` both refuse mismatched source hashes.
 
 Mutable during resume:
 - `run_state.json`

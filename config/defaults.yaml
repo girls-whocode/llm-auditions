@@ -54,7 +54,7 @@ fairness:
 audit:
   require_explicit_rubrics: true
   require_evidence_id_fixture_match: true
-  require_rubric_finalization_field: false
+  require_rubric_finalization_field: true
   require_comparison_fast_heavy_pairs: true
   require_optional_rubric_bonus_semantics: true
   forbid_development_execution_enable: true

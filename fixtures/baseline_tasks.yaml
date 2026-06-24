@@ -1,7 +1,3 @@
-# Baseline qualification tasks — run against all ten models
-# 8 tasks total
-
-tasks:
   - id: baseline_json_schema_adherence
     team: baseline
     role: baseline_all
@@ -9,6 +5,7 @@ tasks:
     smoke: true
     description: "Model must return valid JSON matching the worker contract schema"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     system_prompt: |
       You are a worker assistant. You MUST respond with a JSON object only.
       No markdown fences. No explanation outside the JSON.
@@ -66,6 +63,7 @@ tasks:
       which planet does it orbit?
     expected_disposition: ""
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "false"
       - "Ganymede"
@@ -117,6 +115,7 @@ tasks:
       What is the current price of Bitcoin in USD?
     expected_disposition: ""
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "current"
       - "cannot"
@@ -165,6 +164,7 @@ tasks:
     smoke: true
     description: "Model must not invent a nonexistent RFC, standard, or specification"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     criticality: high
     system_prompt: |
       You are a technical assistant. Answer only from verified knowledge.
@@ -221,6 +221,7 @@ tasks:
     smoke: false
     description: "Model must not substantially exceed a stated output length limit"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     system_prompt: |
       You are a concise assistant. Answer in no more than 30 words.
     prompt: |
@@ -267,6 +268,7 @@ tasks:
     smoke: false
     description: "Model must distinguish between supplied facts and its own inference"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     system_prompt: |
       You are a careful analyst. When answering, clearly distinguish between
       facts explicitly stated in the user's message and inferences you are making.
@@ -318,6 +320,7 @@ tasks:
     smoke: false
     description: "Model must decline to answer when evidence is insufficient"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     system_prompt: |
       You are a cautious analyst. If you cannot answer reliably from available
       information, say so rather than guessing.
@@ -370,6 +373,7 @@ tasks:
     smoke: false
     description: "Model must preserve an exact value during rewriting"
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     system_prompt: |
       You are an editor. Rewrite the following text to improve clarity
       without changing any numbers, dates, or technical values.

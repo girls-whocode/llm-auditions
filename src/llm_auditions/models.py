@@ -268,11 +268,12 @@ class TaskDefinition(BaseModel):
     verification_classification: str = VerificationClassification.RUBRIC_ASSISTED.value
     schema_name: str = ""
     rubric_rules: list[RubricRule] = Field(default_factory=list)
-    rubric_finalization: str = "deterministic"
+    rubric_finalization: str = ""
     rubric_optional_bonus_cap: float = 0.10
     comparison_id: str = ""
     comparison_track: str = ""
     worker_class: str = ""
+    comparison_scenario_ref: str = ""
     development: dict[str, Any] = Field(default_factory=dict)
     smoke_candidates: list[str] = Field(default_factory=list)
 
@@ -287,6 +288,8 @@ class TaskDefinition(BaseModel):
     @field_validator("rubric_finalization")
     @classmethod
     def _validate_rubric_finalization(cls, v: str) -> str:
+        if v == "":
+            return v
         allowed = {"deterministic", "human_review", "mixed"}
         if v not in allowed:
             raise ValueError(f"Unsupported rubric_finalization '{v}'. Allowed: {sorted(allowed)}")
@@ -349,11 +352,14 @@ class ResultIdentity(BaseModel):
     system_prompt_hash: str
     user_prompt_hash: str
     fixture_hashes: dict[str, str] = Field(default_factory=dict)
-    verifier_version: str = "1"
-    scoring_version: str = "1"
-    engine_version: str = "0.9.0"
+    verifier_version: str = "2"
+    scoring_version: str = "2"
+    engine_version: str = "0.10.0"
 
-    task_suite_version: str = "1"
+    task_suite_version: str = "2"
+    handoff_fast_identity_key: str = ""
+    handoff_fast_response_hash: str = ""
+    comparison_scenario_hash: str = ""
 
     def key(self, include_effective_mode: bool = True) -> str:
         """Deterministic string key for this identity."""
@@ -376,6 +382,9 @@ class ResultIdentity(BaseModel):
             self.verifier_version,
             self.scoring_version,
             self.engine_version,
+            self.handoff_fast_identity_key,
+            self.handoff_fast_response_hash,
+            self.comparison_scenario_hash,
         ]
         if include_effective_mode:
             parts.append(self.effective_think_mode)
@@ -619,11 +628,11 @@ class RunManifest(BaseModel):
     run_id: str
     created_at: str
     profile: str
-    engine_version: str = "0.9.0"
-    task_suite_version: str = "1"
-    scoring_version: str = "1"
-    verifier_version: str = "1"
-    report_version: str = "1"
+    engine_version: str = "0.10.0"
+    task_suite_version: str = "2"
+    scoring_version: str = "2"
+    verifier_version: str = "2"
+    report_version: str = "2"
     ollama_version: str = "unknown"
     ollama_base_url: str = "http://localhost:11434"
     project_version: str = "1.0.0"
@@ -645,6 +654,7 @@ class RunManifest(BaseModel):
     config_hashes: dict[str, str] = Field(default_factory=dict)
     schema_hashes: dict[str, str] = Field(default_factory=dict)
     fixture_hashes: dict[str, str] = Field(default_factory=dict)
+    execution_source_hashes: dict[str, str] = Field(default_factory=dict)
     task_manifest_hash: str = ""
     execution_plan_hash: str = ""
 

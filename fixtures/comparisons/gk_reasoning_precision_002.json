@@ -1,0 +1,6 @@
+{
+  "comparison_id": "gk_reasoning_precision_002",
+  "track": "independent",
+  "prompt": "Compare reasoning precision for general-knowledge correctness tasks.",
+  "description": "Independent comparison for general knowledge reasoning precision."
+}

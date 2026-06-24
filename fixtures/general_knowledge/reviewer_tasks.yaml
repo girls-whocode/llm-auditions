@@ -1,7 +1,3 @@
-# General Knowledge — reviewer tasks
-# Role: correctly approve, revise, reject, reroute, or request research on worker answers
-
-tasks:
   - id: gk_review_approve_correct_answer
     team: general_knowledge
     role: reviewer
@@ -23,6 +19,7 @@ tasks:
     expected_disposition: APPROVE
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 512
     think_modes: ["false"]
@@ -64,6 +61,7 @@ tasks:
     expected_disposition: REJECT
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 512
     think_modes: ["false"]
@@ -113,6 +111,7 @@ tasks:
     expected_disposition: APPROVE
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 512
     think_modes: ["false"]
@@ -153,6 +152,7 @@ tasks:
     expected_disposition: RESEARCH_REQUIRED
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 512
     think_modes: ["false"]
@@ -202,6 +202,7 @@ tasks:
     expected_disposition: REVISE
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 512
     think_modes: ["false"]

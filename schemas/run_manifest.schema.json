@@ -30,6 +30,7 @@
     "config_hashes",
     "schema_hashes",
     "fixture_hashes",
+    "execution_source_hashes",
     "execution_plan_hash",
     "git_commit",
     "git_dirty"
@@ -107,6 +108,10 @@
       "additionalProperties": {"type": "string"}
     },
     "fixture_hashes": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "execution_source_hashes": {
       "type": "object",
       "additionalProperties": {"type": "string"}
     },

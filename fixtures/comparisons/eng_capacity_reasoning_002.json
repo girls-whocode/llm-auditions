@@ -1,0 +1,6 @@
+{
+  "comparison_id": "eng_capacity_reasoning_002",
+  "track": "handoff",
+  "prompt": "Reason about engineering hardware capacity limits under constraints.",
+  "description": "Handoff comparison for engineering hardware capacity reasoning."
+}

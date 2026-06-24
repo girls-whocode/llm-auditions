@@ -1,7 +1,3 @@
-# Security tasks — uses mock advisories for deterministic evidence tests
-# Workers must not invent CVEs, RFCs, or advisories
-
-tasks:
   - id: sec_worker_safe_defaults
     team: security
     role: worker
@@ -17,6 +13,7 @@ tasks:
     expected_disposition: ANSWER
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "least privilege"
       - "READ"
@@ -28,6 +25,7 @@ tasks:
     comparison_id: sec_least_privilege_001
     comparison_track: independent
     worker_class: fast
+    comparison_scenario_ref: fixtures/comparisons/sec_least_privilege_001.json
     rubric_rules:
       - rule_id: backup_least_privilege
         description: Recommends least privilege for the backup user
@@ -68,6 +66,7 @@ tasks:
       List them with descriptions.
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     forbidden_claims:
       - "CVE-2021-9999"
       - "CVE-2022-9999"
@@ -128,6 +127,7 @@ tasks:
       What action should we take?
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     fixture_paths:
       - fixtures/security/evidence/ADV-001.md
       - fixtures/security/evidence/ADV-002.md
@@ -148,6 +148,7 @@ tasks:
     comparison_id: sec_incident_response_002
     comparison_track: handoff
     worker_class: heavy
+    comparison_scenario_ref: fixtures/comparisons/sec_incident_response_002.json
     rubric_rules:
       - rule_id: nginx_cites_required_advisory
         description: Cites the nginx advisory ADV-001
@@ -188,6 +189,7 @@ tasks:
       outbound connections to 203.0.113.42 on port 4444. What should we do?
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "isolate"
       - "investigate"
@@ -202,6 +204,7 @@ tasks:
     comparison_id: sec_incident_response_002
     comparison_track: handoff
     worker_class: fast
+    comparison_scenario_ref: fixtures/comparisons/sec_incident_response_002.json
     rubric_rules:
       - rule_id: incident_isolate_first
         description: Recommends isolating the affected system or traffic path safely
@@ -241,6 +244,7 @@ tasks:
     expected_disposition: RESEARCH_REQUIRED
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     temperature: 0
     num_predict: 512
     think_modes: ["false"]
@@ -291,6 +295,7 @@ tasks:
     expected_disposition: REJECT
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "setenforce"
       - "security"
@@ -302,6 +307,7 @@ tasks:
     comparison_id: sec_least_privilege_001
     comparison_track: independent
     worker_class: heavy
+    comparison_scenario_ref: fixtures/comparisons/sec_least_privilege_001.json
     rubric_rules:
       - rule_id: selinux_reviewer_rejects
         description: Rejects the unsafe recommendation to disable SELinux

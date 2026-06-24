@@ -1,7 +1,3 @@
-# Engineering / Systems tasks
-# These scenarios are intentionally distinct from engineering_hardware_tasks.yaml
-
-tasks:
   - id: eng_worker_no_performance_guarantee
     team: engineering_hardware
     role: worker
@@ -18,6 +14,7 @@ tasks:
     expected_disposition: ANSWER
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "depends"
       - "benchmark"
@@ -32,6 +29,7 @@ tasks:
     comparison_id: eng_perf_claims_001
     comparison_track: independent
     worker_class: fast
+    comparison_scenario_ref: fixtures/comparisons/eng_perf_claims_001.json
     rubric_rules:
       - rule_id: api_latency_says_depends
         description: Says the production latency depends on the real workload
@@ -72,6 +70,7 @@ tasks:
     expected_disposition: ANSWER
     required_json_schema: worker_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     reference_facts:
       required_capacity_rpm: 120000
       current_capacity_rpm: 90000
@@ -124,6 +123,7 @@ tasks:
     expected_disposition: REVISE
     required_json_schema: reviewer_result
     verification_classification: rubric_assisted
+    rubric_finalization: deterministic
     required_concepts:
       - "benchmark"
       - "actual"
@@ -135,6 +135,7 @@ tasks:
     comparison_id: eng_perf_claims_001
     comparison_track: independent
     worker_class: heavy
+    comparison_scenario_ref: fixtures/comparisons/eng_perf_claims_001.json
     rubric_rules:
       - rule_id: latency_reviewer_verdict_revise
         description: Returns REVISE for the unsupported production latency claim

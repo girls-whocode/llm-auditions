@@ -31,6 +31,14 @@ from .models import (
 )
 from .ollama_client import OllamaClient
 from .scoring import score_result
+from .versioning import (
+    ENGINE_VERSION,
+    REPORT_VERSION,
+    SCORING_VERSION,
+    TASK_SUITE_VERSION,
+    VERIFIER_VERSION,
+    execution_source_hashes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +49,6 @@ IMMUTABLE_RUN_FILES = {
     "model_inventory.json",
     "task_manifest.json",
 }
-ENGINE_VERSION = "0.9.0"
-SCORING_VERSION = "1"
-VERIFIER_VERSION = "1"
 
 
 def _sha256_text(text: str) -> str:
@@ -162,6 +167,34 @@ class AuditionRunner:
     def _task_hash(self, task: TaskDefinition) -> str:
         return hashlib.sha256(json.dumps(task.model_dump(mode="json"), sort_keys=True).encode()).hexdigest()[:16]
 
+    def _comparison_pair_key(self, task: TaskDefinition, row: PlannedRequest) -> tuple[str, str, str, str]:
+        return (
+            task.comparison_id,
+            task.comparison_track,
+            str(row.requested_think_mode),
+            str(row.structured_output_mode),
+            self._comparison_scenario_hash(task),
+        )
+
+    def _comparison_scenario_hash(self, task: TaskDefinition) -> str:
+        seed = {
+            "comparison_id": task.comparison_id,
+            "comparison_track": task.comparison_track,
+            "scenario_ref": task.comparison_scenario_ref,
+            "fixture_hashes": task.fixture_hashes(PROJECT_ROOT),
+        }
+        return hashlib.sha256(json.dumps(seed, sort_keys=True).encode()).hexdigest()[:16]
+
+    def _handoff_context_from_result(self, result: TaskResult, scenario_hash: str) -> dict[str, str]:
+        fast_response = (result.response.content or "").strip()
+        fast_response_hash = hashlib.sha256(fast_response.encode()).hexdigest()[:16] if fast_response else ""
+        return {
+            "fast_identity_key": result.identity.key(),
+            "fast_response": fast_response,
+            "fast_response_hash": fast_response_hash,
+            "comparison_scenario_hash": scenario_hash,
+        }
+
     def _write_task_snapshots(self, tasks: list[TaskDefinition], plan_rows: list[dict[str, Any]]) -> dict[str, str]:
         snapshot_dir = self._task_snapshot_dir()
         snapshot_dir.mkdir(parents=True, exist_ok=True)
@@ -252,6 +285,8 @@ class AuditionRunner:
             engine_version=ENGINE_VERSION,
             scoring_version=SCORING_VERSION,
             verifier_version=VERIFIER_VERSION,
+            report_version=REPORT_VERSION,
+            task_suite_version=TASK_SUITE_VERSION,
             ollama_version=ollama_version,
             ollama_base_url=self.config.ollama_base_url,
             git_commit=git_commit,
@@ -272,6 +307,7 @@ class AuditionRunner:
             config_hashes=_config_hashes(PROJECT_ROOT),
             schema_hashes=schema_hashes,
             fixture_hashes=fixture_hashes,
+            execution_source_hashes=execution_source_hashes(PROJECT_ROOT),
             task_manifest_hash=task_manifest_hash,
             execution_plan_hash=execution_plan_hash,
         )
@@ -306,10 +342,10 @@ class AuditionRunner:
         version_mismatches: list[str] = []
         expected_versions = {
             "engine_version": ENGINE_VERSION,
-            "task_suite_version": "1",
+            "task_suite_version": TASK_SUITE_VERSION,
             "scoring_version": SCORING_VERSION,
             "verifier_version": VERIFIER_VERSION,
-            "report_version": "1",
+            "report_version": REPORT_VERSION,
         }
         for name, expected in expected_versions.items():
             current = str(getattr(self._manifest, name, ""))
@@ -369,8 +405,14 @@ class AuditionRunner:
             for path, stored in self._manifest.config_hashes.items()
             if current_config_hashes.get(path) != stored
         ]
+        current_source_hashes = execution_source_hashes(PROJECT_ROOT)
+        source_hash_mismatches = [
+            f"{name}: stored={stored} current={current_source_hashes.get(name, 'missing')}"
+            for name, stored in (self._manifest.execution_source_hashes or {}).items()
+            if current_source_hashes.get(name) != stored
+        ]
 
-        if digest_mismatches or config_mismatches or version_mismatches or hash_mismatches:
+        if digest_mismatches or config_mismatches or version_mismatches or hash_mismatches or source_hash_mismatches:
             details = []
             if digest_mismatches:
                 details.append("model digests changed:\n" + "\n---\n".join(digest_mismatches))
@@ -380,6 +422,8 @@ class AuditionRunner:
                 details.append("version mismatch: " + "; ".join(version_mismatches))
             if hash_mismatches:
                 details.append("manifest/hash mismatch: " + "; ".join(hash_mismatches))
+            if source_hash_mismatches:
+                details.append("execution source hash mismatch: " + "; ".join(source_hash_mismatches))
             raise RuntimeError("Resume refused: " + " | ".join(details))
 
         current_tasks = {
@@ -418,19 +462,72 @@ class AuditionRunner:
     ) -> Iterator[TaskResult]:
         tasks_by_key = {(t.team, t.role, t.id, t.task_version): t for t in tasks}
         schemas_dir = PROJECT_ROOT / "schemas"
+        self.run_dir.mkdir(parents=True, exist_ok=True)
         events_path = self.run_dir / "events.jsonl"
         events_fh = events_path.open("a", encoding="utf-8")
+
+        planned_rows = [PlannedRequest.model_validate(row) for row in plan_rows]
+        handoff_fast_index: dict[tuple[str, str, str, str, str], int] = {}
+        handoff_contexts: dict[tuple[str, str, str, str, str], dict[str, str]] = {}
+        for idx, row in enumerate(planned_rows):
+            task = tasks_by_key[(row.team, row.role, row.task_id, row.task_version)]
+            if task.comparison_track != "handoff" or not task.comparison_id:
+                continue
+            if task.worker_class == "fast":
+                handoff_fast_index[self._comparison_pair_key(task, row)] = idx
+
+        executed_indices: set[int] = set()
         try:
-            for row in plan_rows:
+            for idx, row in enumerate(planned_rows):
+                if idx in executed_indices:
+                    continue
+                task = tasks_by_key[(row.team, row.role, row.task_id, row.task_version)]
+                pair_key = self._comparison_pair_key(task, row)
+
+                if task.comparison_track == "handoff" and task.worker_class == "heavy":
+                    fast_idx = handoff_fast_index.get(pair_key)
+                    if fast_idx is not None and fast_idx not in executed_indices:
+                        fast_row = planned_rows[fast_idx]
+                        fast_task = tasks_by_key[(fast_row.team, fast_row.role, fast_row.task_id, fast_row.task_version)]
+                        self._run_order += 1
+                        fast_results = list(
+                            self._run_single_planned_request(
+                                task=fast_task,
+                                row=fast_row,
+                                schemas_dir=schemas_dir,
+                                team_weights=(team_weights or {}).get(f"{fast_task.team}.{fast_task.role}"),
+                                events_fh=events_fh,
+                                handoff_context=None,
+                                comparison_scenario_hash=self._comparison_scenario_hash(fast_task),
+                            )
+                        )
+                        executed_indices.add(fast_idx)
+                        for produced in fast_results:
+                            handoff_contexts[pair_key] = self._handoff_context_from_result(
+                                produced, self._comparison_scenario_hash(fast_task)
+                            )
+                            yield produced
+
                 self._run_order += 1
-                task = tasks_by_key[(row["team"], row["role"], row["task_id"], row["task_version"])]
-                yield from self._run_single_planned_request(
-                    task=task,
-                    row=PlannedRequest.model_validate(row),
-                    schemas_dir=schemas_dir,
-                    team_weights=(team_weights or {}).get(f"{task.team}.{task.role}"),
-                    events_fh=events_fh,
+                produced_rows = list(
+                    self._run_single_planned_request(
+                        task=task,
+                        row=row,
+                        schemas_dir=schemas_dir,
+                        team_weights=(team_weights or {}).get(f"{task.team}.{task.role}"),
+                        events_fh=events_fh,
+                        handoff_context=handoff_contexts.get(pair_key),
+                        comparison_scenario_hash=self._comparison_scenario_hash(task),
+                    )
                 )
+                executed_indices.add(idx)
+                if task.comparison_track == "handoff" and task.worker_class == "fast":
+                    for produced in produced_rows:
+                        handoff_contexts[pair_key] = self._handoff_context_from_result(
+                            produced, self._comparison_scenario_hash(task)
+                        )
+                for produced in produced_rows:
+                    yield produced
         finally:
             events_fh.close()
 
@@ -441,9 +538,11 @@ class AuditionRunner:
         schemas_dir: Path,
         team_weights: dict[str, float] | None,
         events_fh: Any,
+        handoff_context: dict[str, str] | None = None,
+        comparison_scenario_hash: str = "",
     ) -> Iterator[TaskResult]:
         schema = self._load_schema_for_task(task, schemas_dir)
-        messages = self._build_messages(task)
+        messages = self._build_messages(task, handoff_context=handoff_context)
         pre_identity = self._make_identity(
             task=task,
             model_name=row.model,
@@ -451,6 +550,8 @@ class AuditionRunner:
             effective_think_mode=row.requested_think_mode,
             schema=schema,
             model_response=None,
+            handoff_context=handoff_context,
+            comparison_scenario_hash=comparison_scenario_hash,
         )
         pre_key = pre_identity.pre_request_key()
         if pre_key in self._completed_keys:
@@ -486,6 +587,10 @@ class AuditionRunner:
             "structured_output_mode": row.structured_output_mode,
             "schema_name": task.required_json_schema,
         }
+        if handoff_context:
+            response.effective_prompt["fast_worker_response"] = handoff_context.get("fast_response", "")
+            response.effective_prompt["handoff_context"] = handoff_context
+            response.request_payload["handoff_context"] = handoff_context
         identity = self._make_identity(
             task=task,
             model_name=row.model,
@@ -493,6 +598,8 @@ class AuditionRunner:
             effective_think_mode=response.effective_think_mode,
             schema=schema,
             model_response=response,
+            handoff_context=handoff_context,
+            comparison_scenario_hash=comparison_scenario_hash,
         )
         status = "completed"
         if response.raw_json.get("_think_mode_unsupported"):
@@ -726,6 +833,8 @@ class AuditionRunner:
         effective_think_mode: str,
         schema: dict[str, Any] | None,
         model_response: ModelResponse | None,
+        handoff_context: dict[str, str] | None = None,
+        comparison_scenario_hash: str = "",
     ) -> ResultIdentity:
         inv = self._inventory_by_name.get(model_name)
         configured = {m.name: m.full_digest or m.id for m in self.config.get_configured_models()}
@@ -764,9 +873,12 @@ class AuditionRunner:
             system_prompt_hash=_sha256_text(task.system_prompt),
             user_prompt_hash=_sha256_text(user_prompt),
             fixture_hashes=task.fixture_hashes(PROJECT_ROOT),
+            handoff_fast_identity_key=(handoff_context or {}).get("fast_identity_key", ""),
+            handoff_fast_response_hash=(handoff_context or {}).get("fast_response_hash", ""),
+            comparison_scenario_hash=comparison_scenario_hash,
         )
 
-    def _build_messages(self, task: TaskDefinition) -> list[dict[str, Any]]:
+    def _build_messages(self, task: TaskDefinition, handoff_context: dict[str, str] | None = None) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = []
 
         if task.system_prompt:
@@ -782,6 +894,14 @@ class AuditionRunner:
 
         if injected_chunks:
             user_prompt = f"{user_prompt}\n\nReference fixtures:\n\n" + "\n\n".join(injected_chunks)
+
+        if handoff_context and task.comparison_track == "handoff" and task.worker_class == "heavy":
+            handoff_json = json.dumps(handoff_context, sort_keys=True)
+            user_prompt = (
+                f"{user_prompt}\n\n"
+                "Escalation handoff from fast worker (use this as upstream context):\n"
+                f"{handoff_json}\n"
+            )
 
         if task.structured_output_mode == "prompt_only" and task.required_json_schema:
             user_prompt = user_prompt + "\n\nReturn ONLY valid JSON (no markdown fences, no prose)."
