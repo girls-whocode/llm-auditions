@@ -1,0 +1,41 @@
+# Exhaustive profile — all tasks, all think modes, edge cases
+# MUST be explicitly invoked. Will print runtime warning before starting.
+# Requires --yes or AUDITION_YES=1 for non-interactive use.
+
+profile: exhaustive
+description: "All tasks, edge cases, think=false/low/medium, optional high for reasoning roles. Requires explicit invocation."
+
+think_modes: [false, "low", "medium"]
+# Optional high only for roles where cost is justified
+high_think_roles:
+  - mathematics_solver
+  - architecture_worker
+  - security_worker
+  - general_knowledge_heavy_worker
+
+concurrency: 1
+temperature: 0
+num_predict: 6144
+
+include_teams:
+  - baseline
+  - general_knowledge
+  - research
+  - linux_infrastructure
+  - engineering_hardware
+  - development
+  - mathematics
+  - security
+  - architecture
+  - document_analysis
+  - integration_review
+  - language_knowledge
+
+task_filter:
+  smoke_only: false
+  include_edge_cases: true
+
+resume: true
+
+# Safety guard — must confirm before running
+require_confirmation: true

@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReviewerResult",
+  "description": "Structured response contract for reviewer roles",
+  "type": "object",
+  "required": ["verdict", "correctness_risk", "completeness", "target", "issues", "revision_instructions"],
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVE", "REVISE", "ESCALATE_HEAVY", "RESEARCH_REQUIRED", "SPECIALIST_REROUTE", "REJECT"]
+    },
+    "correctness_risk": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "completeness": {
+      "type": "string",
+      "enum": ["COMPLETE", "PARTIAL", "INCOMPLETE"]
+    },
+    "target": {
+      "type": "string",
+      "description": "Target team/role for rerouting, or NONE"
+    },
+    "issues": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "revision_instructions": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

@@ -1,0 +1,118 @@
+# Model inventory — exact names as reported by `ollama list`
+# Do not substitute other models. Do not pull, delete, rename, or modify models.
+
+models:
+  - name: qwen3-coder:30b
+    id: 06c1097efce0
+    size_gb: 18
+    family: qwen3-coder
+    parameter_size: 30b
+    capabilities:
+      - code_generation
+      - code_review
+      - linux_commands
+      - reasoning
+
+  - name: phi4-reasoning:14b
+    id: 47e2630ccbcd
+    size_gb: 11
+    family: phi4
+    parameter_size: 14b
+    capabilities:
+      - mathematics
+      - reasoning
+      - chain_of_thought
+    supports_thinking: true
+
+  - name: gemma4:26b
+    id: 5571076f3d70
+    size_gb: 17
+    family: gemma4
+    parameter_size: 26b
+    capabilities:
+      - general_knowledge
+      - research
+      - architecture
+      - security
+      - engineering
+
+  - name: gemma4:12b
+    id: 4eb23ef187e2
+    size_gb: 7.6
+    family: gemma4
+    parameter_size: 12b
+    capabilities:
+      - general_knowledge
+      - research
+      - review
+      - linux_commands
+      - security
+      - architecture
+      - engineering
+
+  - name: qwen3.5:9b
+    id: 6488c96fa5fa
+    size_gb: 6.6
+    family: qwen3
+    parameter_size: 9b
+    capabilities:
+      - general_knowledge
+      - review
+      - research_planning
+      - language_editing
+    supports_thinking: true
+
+  - name: qwen2.5-coder:14b
+    id: 9ec8897f747e
+    size_gb: 9.0
+    family: qwen2.5-coder
+    parameter_size: 14b
+    capabilities:
+      - code_generation
+      - code_review
+      - linux_commands
+
+  - name: qwen2.5:14b-instruct
+    id: 7cdf5a0187d5
+    size_gb: 9.0
+    family: qwen2.5
+    parameter_size: 14b
+    capabilities:
+      - general_knowledge
+      - research
+      - review
+      - linux_commands
+      - language_editing
+      - engineering
+
+  - name: codestral:22b
+    id: 0898a8b286d5
+    size_gb: 12
+    family: codestral
+    parameter_size: 22b
+    capabilities:
+      - code_generation
+      - code_review
+
+  - name: qwen2.5-coder:7b
+    id: dae161e27b0e
+    size_gb: 4.7
+    family: qwen2.5-coder
+    parameter_size: 7b
+    capabilities:
+      - code_generation
+      - code_review
+
+  - name: phi4:14b
+    id: ac896e5b8b34
+    size_gb: 9.1
+    family: phi4
+    parameter_size: 14b
+    capabilities:
+      - general_knowledge
+      - mathematics
+      - reasoning
+      - engineering
+      - security
+      - architecture
+      - review

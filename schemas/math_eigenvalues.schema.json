@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MathEigenvalues",
+  "type": "object",
+  "required": ["eigenvalues_exact", "count"],
+  "properties": {
+    "eigenvalues_exact": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 10,
+      "maxItems": 10
+    },
+    "count": {"type": "integer", "const": 10}
+  },
+  "additionalProperties": true
+}

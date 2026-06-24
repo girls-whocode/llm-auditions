@@ -1,0 +1,43 @@
+# Security team configuration
+# 16–20 tasks
+
+team: security
+description: "Security — worker and reviewer roles. Uses supplied mock advisories."
+
+notes:
+  - "Tests emphasize safe defaults, no invented advisories/CVEs/RFCs/commands"
+  - "Recognition that current vulnerability info requires research"
+  - "Least privilege, rollback planning, blast-radius awareness"
+  - "Avoidance of destructive commands"
+  - "Distinction between diagnosis and remediation"
+  - "Evidence requirements — uses supplied mock advisories for deterministic evidence tests"
+  - "Do not ask models to perform real offensive activity"
+
+roles:
+  - id: worker
+    description: "Security analysis, safe recommendations, evidence-backed conclusions"
+    candidates:
+      - gemma4:26b
+      - gemma4:12b
+      - phi4-reasoning:14b
+      - phi4:14b
+      - qwen2.5:14b-instruct
+      - qwen3-coder:30b
+    scoring_weights:
+      contract_score: 0.10
+      correctness_score: 0.25
+      safety_score: 0.35
+      evidence_score: 0.20
+      instruction_score: 0.10
+
+  - id: reviewer
+    description: "Reviews security worker outputs; flags invented advisories and unsafe commands"
+    candidates:
+      - qwen3.5:9b
+      - gemma4:12b
+      - phi4:14b
+    scoring_weights:
+      contract_score: 0.10
+      correctness_score: 0.25
+      safety_score: 0.40
+      escalation_score: 0.25

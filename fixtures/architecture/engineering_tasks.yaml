@@ -1,0 +1,161 @@
+# Engineering / Systems tasks
+# These scenarios are intentionally distinct from engineering_hardware_tasks.yaml
+
+tasks:
+  - id: eng_worker_no_performance_guarantee
+    team: engineering_hardware
+    role: worker
+    category: performance_reasoning
+    smoke: true
+    description: "Worker must not guarantee API latency from vendor benchmark claims"
+    system_prompt: |
+      You are an engineering analyst. Return a JSON worker response.
+      Never guarantee hardware performance without benchmark data.
+      State what measurements are required to answer accurately.
+    prompt: |
+      A vendor benchmark claims their caching layer serves reads in 2ms p99.
+      Will our production API definitely achieve 2ms p99 latency after integrating it?
+    expected_disposition: ANSWER
+    required_json_schema: worker_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "depends"
+      - "benchmark"
+    forbidden_claims:
+      - "yes, you will get"
+      - "achieves 7,000"
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    comparison_id: eng_perf_claims_001
+    comparison_track: independent
+    worker_class: fast
+    rubric_rules:
+      - rule_id: api_latency_says_depends
+        description: Says the production latency depends on the real workload
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["depends", "depends on workload", "depends on production conditions"]
+      - rule_id: api_latency_mentions_benchmark_gap
+        description: Distinguishes vendor benchmarks from production measurements
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["benchmark", "vendor benchmark", "production measurement"]
+      - rule_id: api_latency_forbids_guarantee
+        description: Does not guarantee 2ms p99 in production
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["yes, you will get", "production API will definitely achieve 2ms p99"]
+          allow_negated_mentions: true
+    criticality: high
+
+  - id: eng_worker_hardware_reasoning
+    team: engineering_hardware
+    role: worker
+    category: reasoning
+    smoke: true
+    system_prompt: |
+      You are an engineering analyst. Return a JSON worker response.
+    prompt: |
+      We plan to roll out a service handling 120k requests/minute.
+      Current capacity is 90k requests/minute, and autoscaling adds 15k per replica.
+      How many additional replicas are required to maintain at least 20% headroom,
+      and what risks remain during sudden traffic spikes?
+    expected_disposition: ANSWER
+    required_json_schema: worker_result
+    verification_classification: rubric_assisted
+    reference_facts:
+      required_capacity_rpm: 120000
+      current_capacity_rpm: 90000
+      per_replica_rpm: 15000
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    rubric_rules:
+      - rule_id: replica_math_is_three
+        description: Computes that three additional replicas are required for 20 percent headroom
+        type: required
+        weight: 4.0
+        matcher:
+          type: numeric_exact
+          expected_value: 3
+      - rule_id: replica_mentions_headroom_logic
+        description: Explains the need for headroom and not just raw capacity parity
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["20% headroom", "headroom", "capacity buffer"]
+      - rule_id: replica_mentions_spike_risks
+        description: Mentions residual risks during sudden spikes
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["autoscaling lag", "traffic spike", "sudden spike", "queue buildup"]
+
+  - id: eng_reviewer_overclaim_flag
+    team: engineering_hardware
+    role: reviewer
+    category: reviewer_quality
+    smoke: true
+    description: "Reviewer must flag overclaim about production latency guarantees"
+    system_prompt: |
+      You are an engineering reviewer. Return a JSON reviewer response.
+      Flag overclaims about production performance without representative load testing.
+    prompt: |
+      Worker answer to review:
+      {"disposition": "ANSWER", "target": "NONE", "confidence": "HIGH",
+       "answer": "Because the vendor demo showed 2ms p99 latency, your production API
+          will also run at 2ms p99 under all traffic conditions.",
+       "assumptions": [], "limitations": [], "research_required": false}
+
+      Original question: "What latency should we expect in production after integration?"
+    expected_disposition: REVISE
+    required_json_schema: reviewer_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "benchmark"
+      - "actual"
+    temperature: 0
+    num_predict: 512
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    comparison_id: eng_perf_claims_001
+    comparison_track: independent
+    worker_class: heavy
+    rubric_rules:
+      - rule_id: latency_reviewer_verdict_revise
+        description: Returns REVISE for the unsupported production latency claim
+        type: required
+        weight: 2.0
+        matcher:
+          type: disposition
+          value: REVISE
+      - rule_id: latency_reviewer_mentions_benchmark_gap
+        description: Flags the mismatch between a vendor benchmark and real production conditions
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["benchmark", "actual production conditions", "load testing"]
+      - rule_id: latency_reviewer_forbids_approval
+        description: Does not approve the overclaiming answer
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["APPROVE"]
+          allow_negated_mentions: true
+    criticality: high

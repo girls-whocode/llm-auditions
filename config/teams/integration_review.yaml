@@ -1,0 +1,37 @@
+# Integration Review team configuration
+# 12–16 tasks
+
+team: integration_review
+description: "Integration review — primary and escalation roles. Reviews multi-team outputs."
+
+notes:
+  - "Model must review outputs from simulated teams and identify:"
+  - "  contradictions, duplicated work, missing assumptions, conflicting recommendations"
+  - "  unsupported facts, unsafe combined actions"
+  - "  which team must revise its portion"
+  - "  whether the final answer can be approved"
+
+roles:
+  - id: primary
+    description: "Reviews integrated multi-team outputs for conflicts and approval readiness"
+    candidates:
+      - gemma4:12b
+      - qwen3.5:9b
+      - qwen2.5:14b-instruct
+      - phi4:14b
+    scoring_weights:
+      contract_score: 0.15
+      correctness_score: 0.30
+      completeness_score: 0.25
+      escalation_score: 0.30
+
+  - id: escalation
+    description: "Complex integration reviews; handles ambiguous or contradictory multi-team outputs"
+    candidates:
+      - gemma4:26b
+      - phi4-reasoning:14b
+    scoring_weights:
+      contract_score: 0.10
+      correctness_score: 0.35
+      completeness_score: 0.30
+      escalation_score: 0.25

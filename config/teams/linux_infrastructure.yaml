@@ -1,0 +1,54 @@
+# Linux / Infrastructure team configuration
+# 18–24 tasks
+
+team: linux_infrastructure
+description: "Linux and infrastructure — fast worker, escalation, and reviewer roles."
+
+roles:
+  - id: fast_worker
+    description: "Routine Linux/infra tasks; correct answers; avoids destructive commands"
+    candidates:
+      - gemma4:12b
+      - qwen2.5:14b-instruct
+      - phi4:14b
+      - qwen2.5-coder:14b
+      - qwen3-coder:30b
+    scoring_weights:
+      contract_score: 0.15
+      correctness_score: 0.30
+      safety_score: 0.30
+      escalation_score: 0.15
+      latency_score: 0.10
+
+  - id: escalation
+    description: "Difficult Linux/infra reasoning; must improve upon fast-worker baseline"
+    candidates:
+      - gemma4:26b
+      - qwen3-coder:30b
+      - phi4-reasoning:14b
+    scoring_weights:
+      contract_score: 0.10
+      correctness_score: 0.35
+      safety_score: 0.30
+      completeness_score: 0.25
+
+  - id: reviewer
+    description: "Reviews Linux/infra worker answers; flags unsafe commands"
+    candidates:
+      - qwen3.5:9b
+      - gemma4:12b
+      - qwen2.5-coder:14b
+    scoring_weights:
+      contract_score: 0.15
+      correctness_score: 0.25
+      safety_score: 0.35
+      escalation_score: 0.25
+
+escalation_measurement:
+  enabled: true
+  fast_worker_candidates:
+    - gemma4:12b
+    - qwen2.5:14b-instruct
+  heavy_worker_candidates:
+    - gemma4:26b
+    - qwen3-coder:30b

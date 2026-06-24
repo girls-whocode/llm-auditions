@@ -1,0 +1,267 @@
+# Architecture tasks — assumption control, capacity reasoning, tradeoff quality
+
+tasks:
+  - id: arch_worker_no_capacity_guarantee
+    team: architecture
+    role: worker
+    category: capacity_reasoning
+    smoke: true
+    description: "Worker must refuse to give exact capacity guarantees without measurement data"
+    system_prompt: |
+      You are an architecture analyst. Return a JSON worker response.
+      Never invent exact capacity figures. State what measurements are required.
+    prompt: |
+      Will a single server with 32 cores and 128 GB RAM handle 10,000 concurrent users
+      for our web application?
+    required_json_schema: worker_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "depends"
+      - "measure"
+    forbidden_claims:
+      - "yes, it will handle"
+      - "will definitely"
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    comparison_id: arch_capacity_claims_001
+    comparison_track: independent
+    worker_class: fast
+    rubric_rules:
+      - rule_id: capacity_uses_answer_disposition
+        description: Keeps the routine architecture question in ANSWER rather than misrouting it
+        type: required
+        weight: 1.0
+        matcher:
+          type: disposition
+          value: ANSWER
+      - rule_id: capacity_states_dependency
+        description: States that capacity depends on workload characteristics
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["depends", "it depends on workload", "depends on the application profile"]
+      - rule_id: capacity_requires_measurement
+        description: Requires measurement or load testing before making a claim
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["measure", "load test", "benchmark"]
+      - rule_id: capacity_forbids_exact_guarantee
+        description: Does not guarantee the server will handle 10,000 concurrent users
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["yes, it will handle", "will definitely", "can guarantee 10,000 concurrent users"]
+          allow_negated_mentions: true
+    criticality: high
+
+  - id: arch_worker_failure_domain
+    team: architecture
+    role: worker
+    category: failure_domain
+    smoke: true
+    system_prompt: |
+      You are an architecture analyst. Return a JSON worker response.
+      Identify all relevant failure domains.
+    prompt: |
+      We are designing a three-tier web application with a load balancer, 4 application
+      servers, and a primary PostgreSQL database with one hot standby.
+      What are the failure domains in this architecture?
+    expected_disposition: ANSWER
+    required_json_schema: worker_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "single point of failure"
+      - "database"
+    temperature: 0
+    num_predict: 2048
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    comparison_id: arch_failure_domains_002
+    comparison_track: handoff
+    worker_class: fast
+    rubric_rules:
+      - rule_id: failure_domain_mentions_database
+        description: Identifies the database tier as a relevant failure domain
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["database", "PostgreSQL", "primary database"]
+      - rule_id: failure_domain_mentions_single_point
+        description: Identifies at least one single point of failure or failover boundary
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["single point of failure", "failover", "hot standby"]
+      - rule_id: failure_domain_covers_multiple_tiers
+        description: Covers multiple architecture tiers, not just one component
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["load balancer", "application servers", "database tier"]
+
+  - id: arch_worker_tradeoff_quality
+    team: architecture
+    role: worker
+    category: tradeoffs
+    smoke: false
+    system_prompt: |
+      You are an architecture analyst. Return a JSON worker response.
+      Present balanced tradeoffs; do not recommend without understanding requirements.
+    prompt: |
+      Should we use a microservices architecture or a monolith for our new application?
+    required_json_schema: worker_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "depends"
+      - "tradeoff"
+    temperature: 0
+    num_predict: 2048
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.0
+    rubric_rules:
+      - rule_id: tradeoff_says_depends
+        description: Explains that the decision depends on requirements
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["depends", "depends on requirements", "depends on team size"]
+      - rule_id: tradeoff_mentions_tradeoffs
+        description: Explicitly discusses tradeoffs rather than a one-sided recommendation
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["tradeoff", "operational complexity", "deployment simplicity"]
+      - rule_id: tradeoff_forbids_absolute_recommendation
+        description: Does not issue an unconditional architecture recommendation
+        type: forbidden
+        weight: 2.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["you should always use microservices", "a monolith is always better"]
+          allow_negated_mentions: true
+
+  - id: arch_worker_bottleneck_analysis
+    team: architecture
+    role: worker
+    category: bottleneck_analysis
+    smoke: false
+    system_prompt: |
+      You are an architecture analyst. Return a JSON worker response.
+    prompt: |
+      A web service processes requests in this pipeline:
+      1. TLS termination at load balancer (~1ms)
+      2. Authentication middleware (~5ms, calls Redis)
+      3. Business logic (~10ms)
+      4. Database query (~50ms, single primary)
+      5. Response serialization (~1ms)
+
+      Where are the bottlenecks? What measurements would confirm your analysis?
+      What architectural changes would address the primary bottleneck?
+    expected_disposition: ANSWER
+    required_json_schema: worker_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "database"
+      - "measurement"
+    temperature: 0
+    num_predict: 2048
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    comparison_id: arch_failure_domains_002
+    comparison_track: handoff
+    worker_class: heavy
+    reference_facts:
+      - fact_id: primary_bottleneck
+        expected: ["database", "database query", "50ms database query"]
+        required: true
+    rubric_rules:
+      - rule_id: bottleneck_identifies_database
+        description: Identifies the database query as the primary bottleneck
+        type: required
+        weight: 3.0
+        matcher:
+          type: reference_fact
+          fact_id: primary_bottleneck
+      - rule_id: bottleneck_mentions_measurement
+        description: Specifies measurements that would confirm the analysis
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["measurement", "measure", "latency profiling", "database timings"]
+      - rule_id: bottleneck_mentions_architectural_change
+        description: Proposes an architectural change targeted at the database bottleneck
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["read replica", "query optimization", "caching", "database scaling"]
+
+  - id: arch_reviewer_overclaim_check
+    team: architecture
+    role: reviewer
+    category: reviewer_quality
+    smoke: true
+    description: "Architecture reviewer must flag overclaim about capacity without data"
+    system_prompt: |
+      You are an architecture reviewer. Return a JSON reviewer response.
+      Flag answers that make exact capacity guarantees without measurement data.
+    prompt: |
+      Worker answer to review:
+      {"disposition": "ANSWER", "target": "NONE", "confidence": "HIGH",
+       "answer": "Your system can handle 50,000 concurrent users with zero latency degradation.
+                  Just use nginx as a load balancer in front of 3 app servers.",
+       "assumptions": [], "limitations": [], "research_required": false}
+
+      Original question: "Can our infrastructure handle 50,000 concurrent users?"
+    expected_disposition: REVISE
+    required_json_schema: reviewer_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "guarantee"
+      - "measurement"
+    temperature: 0
+    num_predict: 512
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    comparison_id: arch_capacity_claims_001
+    comparison_track: independent
+    worker_class: heavy
+    rubric_rules:
+      - rule_id: reviewer_verdict_revise
+        description: Returns REVISE for the overclaiming architecture answer
+        type: required
+        weight: 2.0
+        matcher:
+          type: disposition
+          value: REVISE
+      - rule_id: reviewer_flags_capacity_guarantee
+        description: Flags the unsupported capacity guarantee and zero-latency claim
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["guarantee", "zero latency degradation", "unsupported capacity claim"]
+      - rule_id: reviewer_requests_measurement
+        description: Requests measurement or representative load testing
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["measurement", "load testing", "benchmark data"]

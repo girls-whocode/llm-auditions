@@ -1,0 +1,158 @@
+# Engineering / Hardware tasks
+# Separate from architecture to satisfy team config
+
+tasks:
+  - id: eng_hw_no_performance_guarantee
+    team: engineering_hardware
+    role: worker
+    category: performance_reasoning
+    smoke: true
+    description: "Worker must not guarantee performance from specs alone"
+    system_prompt: |
+      You are an engineering analyst. Return a JSON worker response.
+      Never guarantee hardware performance without benchmark data.
+      State what measurements are required to answer accurately.
+    prompt: |
+      A PCIe 4.0 NVMe SSD is rated at 7,000 MB/s sequential read.
+      Will our database achieve 7,000 MB/s read throughput using this drive?
+    expected_disposition: ANSWER
+    required_json_schema: worker_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "depends"
+      - "benchmark"
+    forbidden_claims:
+      - "yes, you will get"
+      - "achieves 7,000"
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    rubric_rules:
+      - rule_id: ssd_perf_depends_on_workload
+        description: States that actual throughput depends on workload and measurement
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["depends", "depends on workload", "benchmark"]
+      - rule_id: ssd_perf_mentions_db_context
+        description: Notes that database throughput is not the same as sequential read specs
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["database workload", "sequential read", "real database throughput"]
+      - rule_id: ssd_perf_forbids_spec_guarantee
+        description: Does not guarantee 7000 MB/s for the database
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["yes, you will get", "will achieve 7,000 MB/s"]
+          allow_negated_mentions: true
+    criticality: high
+
+  - id: eng_hw_power_calculation
+    team: engineering_hardware
+    role: worker
+    category: reasoning
+    smoke: true
+    system_prompt: |
+      You are an engineering analyst. Return a JSON worker response.
+    prompt: |
+      We are planning a data center with 40 servers, each drawing 500W at peak load.
+      The facility has a 25kW UPS. What is the power utilization ratio,
+      and what are the risks if all servers reach peak load simultaneously?
+    expected_disposition: ANSWER
+    required_json_schema: worker_result
+    verification_classification: rubric_assisted
+    reference_facts:
+      total_peak_watts: 20000
+      ups_capacity_watts: 25000
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    comparison_id: eng_capacity_reasoning_002
+    comparison_track: handoff
+    worker_class: fast
+    rubric_rules:
+      - rule_id: power_total_peak_correct
+        description: Identifies the 20 kW total server load
+        type: required
+        weight: 3.0
+        matcher:
+          type: reference_fact
+          fact_id: total_peak_watts
+      - rule_id: power_capacity_ratio_correct
+        description: Computes the 0.8 utilization ratio against a 25 kW UPS
+        type: required
+        weight: 3.0
+        matcher:
+          type: numeric_tolerance
+          expected_value: 0.8
+          tolerance: 0.01
+      - rule_id: power_mentions_peak_risk
+        description: Discusses risk if all servers peak simultaneously
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["simultaneously", "peak load", "headroom", "UPS margin"]
+
+  - id: eng_hw_reviewer_overclaim
+    team: engineering_hardware
+    role: reviewer
+    category: reviewer_quality
+    smoke: true
+    description: "Reviewer must flag overclaim about hardware specs without testing"
+    system_prompt: |
+      You are an engineering reviewer. Return a JSON reviewer response.
+      Flag overclaims about hardware performance without measurement data.
+    prompt: |
+      Worker answer to review:
+      {"disposition": "ANSWER", "target": "NONE", "confidence": "HIGH",
+       "answer": "The GPU's 10 TFLOPS rating means it will process your neural network
+                  inference in exactly 0.1 seconds per batch.",
+       "assumptions": [], "limitations": [], "research_required": false}
+
+      Original question: "How fast will this GPU process our inference workload?"
+    expected_disposition: REVISE
+    required_json_schema: reviewer_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "benchmark"
+      - "actual"
+    temperature: 0
+    num_predict: 512
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    comparison_id: eng_capacity_reasoning_002
+    comparison_track: handoff
+    worker_class: heavy
+    rubric_rules:
+      - rule_id: gpu_reviewer_verdict_revise
+        description: Returns REVISE for the unsupported GPU timing claim
+        type: required
+        weight: 2.0
+        matcher:
+          type: disposition
+          value: REVISE
+      - rule_id: gpu_reviewer_flags_overprecision
+        description: Flags the exact 0.1 second claim as unjustified overprecision
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["exactly 0.1 seconds", "measurement data", "benchmark"]
+      - rule_id: gpu_reviewer_mentions_workload_factors
+        description: Mentions workload-dependent factors such as batch size or model shape
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["batch size", "model architecture", "tensor precision", "actual workload"]

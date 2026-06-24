@@ -1,0 +1,138 @@
+# Mathematics tasks — deterministic verifier is the correctness authority
+# 6 standard tasks + preserved problems from prior auditions
+
+tasks:
+  - id: math_trailing_zeros_1000_base12
+    team: mathematics
+    role: solver
+    category: number_theory
+    smoke: true
+    description: "Trailing zeros of 1000! in base 12 — preserved from prior auditions"
+    system_prompt: |
+      You are a mathematics solver. Show complete step-by-step reasoning.
+      State your final numeric answer clearly on its own line as: ANSWER: <number>
+    prompt: |
+      How many trailing zeros does 1000! (one thousand factorial) have when written in base 12?
+      Show all steps including the prime factorization approach.
+      Return a final JSON object with keys: final_answer, base_factorization, v2, v3.
+    verifier: mathematics
+    verification_classification: deterministic
+    hard_gate: true
+    required_json_schema: math_trailing_zeros
+    structured_output_mode: ollama_schema
+    temperature: 0
+    num_predict: 6144
+    think_modes: ["false"]
+    weight: 2.0
+
+  - id: math_pell_x2_61y2_1
+    team: mathematics
+    role: solver
+    category: number_theory
+    smoke: true
+    description: "Fundamental solution of x^2 - 61*y^2 = 1 — preserved from prior auditions"
+    system_prompt: |
+      You are a mathematics solver. Show complete step-by-step reasoning.
+      State your final answer clearly as: x = <value>, y = <value>
+    prompt: |
+      Find the fundamental (smallest positive) solution to the Pell equation:
+        x² - 61y² = 1
+      Show your method (e.g., continued fraction expansion of √61).
+      Verify your answer by substitution.
+      Return a final JSON object with keys x and y.
+    verifier: mathematics
+    verification_classification: deterministic
+    hard_gate: true
+    required_json_schema: math_pell_solution
+    structured_output_mode: ollama_schema
+    temperature: 0
+    num_predict: 6144
+    think_modes: ["false"]
+    weight: 2.0
+
+  - id: math_eigenvalues_min_matrix_10x10
+    team: mathematics
+    role: solver
+    category: linear_algebra
+    smoke: true
+    description: "Eigenvalues of A_ij = min(i,j) for 10x10 — preserved from prior auditions"
+    system_prompt: |
+      You are a mathematics solver. Show complete reasoning.
+      List all eigenvalues numerically, one per line.
+    prompt: |
+      Find all eigenvalues of the 10×10 matrix A where A[i][j] = min(i, j),
+      using 1-based indexing (so i, j go from 1 to 10).
+      You may use the known analytical formula for this class of matrices,
+      or derive it. List all 10 eigenvalues numerically.
+      Return a final JSON object with keys eigenvalues_exact (10 exact symbolic strings) and count.
+    verifier: mathematics
+    verification_classification: deterministic
+    hard_gate: true
+    required_json_schema: math_eigenvalues
+    structured_output_mode: ollama_schema
+    temperature: 0
+    num_predict: 4096
+    think_modes: ["false"]
+    weight: 2.0
+
+  - id: math_simple_modular_arithmetic
+    team: mathematics
+    role: solver
+    category: modular_arithmetic
+    smoke: false
+    system_prompt: |
+      You are a mathematics solver. State your final answer as: ANSWER: <number>
+    prompt: |
+      What is 2^100 mod 1000000007?
+      Show your method (e.g., fast exponentiation).
+    verifier: mathematics
+    verification_classification: deterministic
+    hard_gate: true
+    required_json_schema: math_modular_arithmetic
+    structured_output_mode: ollama_schema
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    weight: 1.0
+
+  - id: math_sum_of_divisors
+    team: mathematics
+    role: solver
+    category: number_theory
+    smoke: false
+    system_prompt: |
+      You are a mathematics solver. State your final answer as: ANSWER: <number>
+    prompt: |
+      What is the sum of all divisors of 360?
+      Show the prime factorization and the sigma function calculation.
+    verifier: mathematics
+    verification_classification: deterministic
+    hard_gate: true
+    required_json_schema: math_sum_of_divisors
+    structured_output_mode: ollama_schema
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    weight: 1.0
+
+  - id: math_probability_birthday
+    team: mathematics
+    role: solver
+    category: probability
+    smoke: false
+    system_prompt: |
+      You are a mathematics solver. Show complete calculation.
+      Express the final probability as a decimal rounded to 4 significant figures.
+    prompt: |
+      What is the probability that at least two people in a group of 23 share a birthday,
+      assuming 365 equally likely birthdays and independence?
+      State: ANSWER: <probability>
+    verifier: mathematics
+    verification_classification: deterministic
+    hard_gate: true
+    required_json_schema: math_birthday_probability
+    structured_output_mode: ollama_schema
+    temperature: 0
+    num_predict: 2048
+    think_modes: ["false"]
+    weight: 1.0

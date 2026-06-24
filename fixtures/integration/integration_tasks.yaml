@@ -1,0 +1,198 @@
+# Integration Review tasks — reviews multi-team outputs for conflicts
+
+tasks:
+  - id: integ_primary_conflict_detection
+    team: integration_review
+    role: primary
+    category: conflict_detection
+    smoke: true
+    description: "Reviewer must detect a direct contradiction between two team outputs"
+    system_prompt: |
+      You are an integration reviewer. Review the combined outputs from multiple teams.
+      Identify contradictions, duplicated work, missing assumptions, conflicting
+      recommendations, unsupported facts, and unsafe combined actions.
+      Return a JSON reviewer response.
+      State which team(s) must revise their portion and whether the final answer
+      can be approved.
+    prompt: |
+      Combined team output for review:
+
+      [Security Team]:
+      "Recommendation: Disable TLS 1.0 and 1.1 immediately on all load balancers.
+       Action: Update nginx config and restart. Impact: Minimal, affects <1% of clients."
+
+      [Infrastructure Team]:
+      "Status: 23% of current API clients use TLS 1.0 due to legacy mobile apps.
+       Disabling TLS 1.0 will break these clients. Recommend phased deprecation
+       with 90-day client migration window."
+
+      Question: Can we approve this combined security + infrastructure recommendation?
+    expected_disposition: REVISE
+    required_json_schema: reviewer_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "contradiction"
+      - "23%"
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    verifier: structure
+    weight: 2.0
+    reference_facts:
+      expected_contradictions:
+        - "Security team says impact is minimal but Infrastructure says 23% of clients use TLS 1.0"
+        - "Immediate disable versus 90-day migration window"
+    rubric_rules:
+      - rule_id: tls_conflict_revise
+        description: Returns REVISE for the contradictory combined recommendation
+        type: required
+        weight: 2.0
+        matcher:
+          type: disposition
+          value: REVISE
+      - rule_id: tls_conflict_mentions_contradiction
+        description: Identifies the contradiction between minimal impact and 23 percent client usage
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["contradiction", "23%", "minimal impact", "90-day migration window"]
+      - rule_id: tls_conflict_names_revising_team
+        description: States that the combined answer cannot be approved as written
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["cannot approve", "must revise", "needs revision"]
+
+  - id: integ_primary_missing_assumption
+    team: integration_review
+    role: primary
+    category: missing_assumption
+    smoke: true
+    system_prompt: |
+      You are an integration reviewer. Return a JSON reviewer response.
+      Identify missing assumptions and unanswered questions.
+    prompt: |
+      Combined team output:
+
+      [Architecture Team]:
+      "Recommendation: Migrate to event-driven microservices using Apache Kafka."
+
+      [Development Team]:
+      "Implementation plan: Decompose monolith into 12 services over 6 months."
+
+      [Database Team]:
+      "Data migration: Replicate all tables to new service-owned databases."
+
+      Question: Is this combined migration plan complete and safe to approve?
+    expected_disposition: REVISE
+    required_json_schema: reviewer_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "rollback"
+      - "assumption"
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    reference_facts:
+      expected_contradictions:
+        - "No rollback plan mentioned"
+        - "No downtime plan for data migration"
+        - "No integration testing plan"
+    rubric_rules:
+      - rule_id: migration_plan_revise
+        description: Returns REVISE for the incomplete migration plan
+        type: required
+        weight: 2.0
+        matcher:
+          type: disposition
+          value: REVISE
+      - rule_id: migration_plan_mentions_rollback
+        description: Flags the missing rollback plan explicitly
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["rollback", "no rollback plan", "rollback missing"]
+      - rule_id: migration_plan_mentions_missing_assumptions
+        description: Identifies missing assumptions such as downtime or integration testing
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["assumption", "downtime", "integration testing", "missing plan"]
+
+  - id: integ_escalation_complex_conflict
+    team: integration_review
+    role: escalation
+    category: conflict_detection
+    smoke: true
+    system_prompt: |
+      You are a senior integration reviewer. Return a JSON reviewer response.
+      Identify ALL contradictions, unsupported facts, and unsafe combined actions.
+    prompt: |
+      Multi-team output for enterprise database migration review:
+
+      [Security Team]:
+      "All database traffic must be encrypted in transit. TLS required.
+       No plain-text connections permitted after migration date."
+
+      [Performance Team]:
+      "TLS adds 15-20% CPU overhead. For our 100K TPS target, we need
+       plain-text connections on internal network segments."
+
+      [Compliance Team]:
+      "PCI-DSS requires encryption of cardholder data in transit.
+       No exceptions for internal network segments."
+
+      [Infrastructure Team]:
+      "Migration window: 4 hours Saturday night. No backup window specified.
+       Rollback: undocumented."
+
+      Can this plan be approved?
+    expected_disposition: REJECT
+    required_json_schema: reviewer_result
+    verification_classification: rubric_assisted
+    fixture_paths:
+      - fixtures/integration/evidence/POLICY-003.md
+      - fixtures/integration/evidence/LOG-004.md
+    required_concepts:
+      - "PCI-DSS"
+      - "rollback"
+      - "contradiction"
+    temperature: 0
+    num_predict: 2048
+    think_modes: ["false"]
+    verifier: structure
+    weight: 2.0
+    reference_facts:
+      expected_contradictions:
+        - "Security requires TLS but Performance requires plain-text"
+        - "PCI-DSS compliance forbids plain-text exceptions"
+        - "No rollback procedure"
+        - "No backup window"
+    rubric_rules:
+      - rule_id: migration_conflict_reject
+        description: Rejects the plan because the cross-team conflicts remain unresolved
+        type: required
+        weight: 3.0
+        matcher:
+          type: disposition
+          value: REJECT
+      - rule_id: migration_conflict_mentions_pci_and_tls
+        description: Identifies the contradiction between PCI-DSS/TLS requirements and plain-text performance guidance
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["PCI-DSS", "TLS", "plain-text", "contradiction"]
+      - rule_id: migration_conflict_mentions_rollback_gap
+        description: Flags the missing rollback or backup window
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["rollback", "backup window", "undocumented"]

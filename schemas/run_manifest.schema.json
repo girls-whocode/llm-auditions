@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RunManifest",
+  "description": "Complete manifest for a single audition run",
+  "type": "object",
+  "required": [
+    "run_id",
+    "created_at",
+    "profile",
+    "engine_version",
+    "task_suite_version",
+    "scoring_version",
+    "verifier_version",
+    "report_version",
+    "ollama_version",
+    "ollama_base_url",
+    "models",
+    "model_digests",
+    "environment",
+    "task_count",
+    "candidate_count",
+    "model_count",
+    "request_count",
+    "teams_included",
+    "roles_included",
+    "models_included",
+    "requested_think_modes",
+    "structured_output_modes",
+    "task_manifest_hash",
+    "config_hashes",
+    "schema_hashes",
+    "fixture_hashes",
+    "execution_plan_hash",
+    "git_commit",
+    "git_dirty"
+  ],
+  "properties": {
+    "run_id": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "profile": {"type": "string"},
+    "engine_version": {"type": "string"},
+    "task_suite_version": {"type": "string"},
+    "scoring_version": {"type": "string"},
+    "verifier_version": {"type": "string"},
+    "report_version": {"type": "string"},
+    "ollama_version": {"type": "string"},
+    "ollama_base_url": {"type": "string"},
+    "project_version": {"type": "string"},
+    "git_commit": {"type": "string"},
+    "git_dirty": {"type": "boolean"},
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "id", "size", "modified"],
+        "properties": {
+          "name": {"type": "string"},
+          "id": {"type": "string"},
+          "size": {"type": ["string", "integer"]},
+          "modified": {"type": "string"},
+          "family": {"type": "string"},
+          "parameter_size": {"type": "string"},
+          "quantization_level": {"type": "string"}
+        }
+      }
+    },
+    "model_digests": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "environment": {"type": "object"},
+    "task_count": {"type": "integer"},
+    "candidate_count": {"type": "integer"},
+    "model_count": {"type": "integer"},
+    "request_count": {"type": "integer"},
+    "teams_included": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "roles_included": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "models_included": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "requested_think_modes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "structured_output_modes": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "task_hashes": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "task_manifest_hash": {"type": "string"},
+    "config_hashes": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "schema_hashes": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "fixture_hashes": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
+    },
+    "execution_plan_hash": {"type": "string"}
+  },
+  "additionalProperties": false
+}

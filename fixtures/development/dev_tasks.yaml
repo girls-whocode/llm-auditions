@@ -1,0 +1,267 @@
+# Development tasks — deterministic testing is the correctness authority
+# Covers fast_worker, advanced_worker, and code_review roles
+
+tasks:
+  - id: dev_fast_python_function
+    team: development
+    role: fast_worker
+    category: code_generation
+    smoke: true
+    system_prompt: |
+      You are a Python developer. Write correct, production-quality Python code.
+      Provide code in a python code block. Do not add unnecessary complexity.
+    prompt: |
+      Write a Python function `count_words(text: str) -> dict[str, int]` that counts
+      word frequencies (case-insensitive) in a string. Include a docstring.
+      The function must handle empty strings and return an empty dict in that case.
+    verifier: development
+    verification_classification: deterministic
+    hard_gate: true
+    development:
+      language: python
+      entry_file: solution.py
+      test_command:
+        - python
+        - -m
+        - pytest
+        - -q
+      fixture_directory: fixtures/development/task_001
+      timeout_seconds: 20
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    weight: 1.5
+    comparison_id: dev_python_correctness_001
+    comparison_track: independent
+    worker_class: fast
+
+  - id: dev_fast_bash_syntax
+    team: development
+    role: fast_worker
+    category: code_generation
+    smoke: true
+    system_prompt: |
+      You are a shell scripter. Write safe, correct bash scripts.
+      Provide code in a bash code block.
+    prompt: |
+      Write a bash script that:
+      1. Checks if a directory given as $1 exists
+      2. If it does not exist, prints "Directory not found" to stderr and exits 1
+      3. If it does exist, lists the 5 most recently modified files in it
+    verifier: development
+    verification_classification: deterministic
+    hard_gate: true
+    development:
+      language: bash
+      entry_file: solution.sh
+      test_command:
+        - python
+        - -m
+        - pytest
+        - -q
+      fixture_directory: fixtures/development/task_002
+      timeout_seconds: 20
+    temperature: 0
+    num_predict: 512
+    think_modes: ["false"]
+    weight: 1.0
+    comparison_id: dev_scripting_reliability_002
+    comparison_track: handoff
+    worker_class: fast
+
+  - id: dev_fast_subtle_bug
+    team: development
+    role: fast_worker
+    category: debugging
+    smoke: false
+    edge_case: false
+    description: "Model must identify a subtle off-by-one bug in Python code"
+    system_prompt: |
+      You are a Python developer. Identify and fix bugs in the provided code.
+      Return corrected code in a python block followed by explanation.
+    prompt: |
+      Find and fix the bug(s) in this Python function:
+
+      ```python
+      def find_max_subarray_sum(nums: list[int]) -> int:
+          """Return the maximum sum of any contiguous subarray."""
+          max_sum = 0
+          current_sum = 0
+          for num in nums:
+              current_sum = current_sum + num
+              if current_sum > max_sum:
+                  max_sum = current_sum
+              if current_sum < 0:
+                  current_sum = 0
+          return max_sum
+      ```
+
+      Test case: find_max_subarray_sum([-2, -3, -1]) should return -1, not 0.
+    verifier: development
+    verification_classification: deterministic
+    hard_gate: true
+    development:
+      language: python
+      entry_file: solution.py
+      test_command:
+        - python
+        - -m
+        - pytest
+        - -q
+      fixture_directory: fixtures/development/task_004
+      timeout_seconds: 20
+    reference_facts:
+      bug: "Initializing max_sum to 0 fails for all-negative arrays"
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    weight: 1.5
+
+  - id: dev_advanced_concurrent_code
+    team: development
+    role: advanced_worker
+    category: code_generation
+    smoke: true
+    system_prompt: |
+      You are an advanced Python developer. Write correct, production-quality code.
+    prompt: |
+      Implement a thread-safe Python class `RateLimiter` that:
+      - Takes `max_calls` and `period_seconds` as constructor arguments
+      - Has an `acquire()` method that blocks until a call can be made within the rate limit
+      - Uses threading.Lock or threading.Semaphore correctly
+      - Has no race conditions in the window-sliding logic
+      Include basic usage example.
+    verifier: development
+    verification_classification: deterministic
+    hard_gate: true
+    development:
+      language: python
+      entry_file: solution.py
+      test_command:
+        - python
+        - -m
+        - pytest
+        - -q
+      fixture_directory: fixtures/development/task_003
+      timeout_seconds: 20
+    temperature: 0
+    num_predict: 2048
+    think_modes: ["false"]
+    weight: 1.5
+    comparison_id: dev_python_correctness_001
+    comparison_track: independent
+    worker_class: heavy
+
+  - id: dev_code_review_security_flaw
+    team: development
+    role: code_review
+    category: security_review
+    smoke: true
+    description: "Reviewer must identify SQL injection vulnerability"
+    system_prompt: |
+      You are a code reviewer. Review the code for correctness, security, and style.
+      Return a JSON reviewer response.
+    prompt: |
+      Review this Python function:
+
+      ```python
+      import sqlite3
+
+      def get_user(db_path: str, username: str) -> dict:
+          conn = sqlite3.connect(db_path)
+          cursor = conn.cursor()
+          query = f"SELECT * FROM users WHERE username = '{username}'"
+          cursor.execute(query)
+          result = cursor.fetchone()
+          conn.close()
+          return result
+      ```
+
+      Original task: "Return user record by username from SQLite database."
+    expected_disposition: REJECT
+    required_json_schema: reviewer_result
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "SQL injection"
+      - "parameterized"
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    verifier: structure
+    weight: 2.0
+    comparison_id: dev_scripting_reliability_002
+    comparison_track: handoff
+    worker_class: heavy
+    rubric_rules:
+      - rule_id: sqli_reviewer_rejects
+        description: Rejects the vulnerable SQL construction
+        type: required
+        weight: 3.0
+        matcher:
+          type: disposition
+          value: REJECT
+      - rule_id: sqli_reviewer_names_vulnerability
+        description: Identifies SQL injection explicitly
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["SQL injection", "string interpolation in SQL", "unsafe query construction"]
+      - rule_id: sqli_reviewer_requires_parameterization
+        description: Recommends parameterized queries or prepared statements
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["parameterized", "prepared statement", "bound parameter"]
+
+  - id: dev_code_review_approve_correct
+    team: development
+    role: code_review
+    category: reviewer_quality
+    smoke: false
+    description: "Reviewer must approve correct code even if style differs from preference"
+    system_prompt: |
+      You are a code reviewer. Return a JSON reviewer response.
+      Approve functionally correct code even if you prefer different style.
+    prompt: |
+      Review this Python function:
+
+      ```python
+      def is_palindrome(s):
+          s = s.lower().replace(' ', '')
+          return s == s[::-1]
+      ```
+
+      Original task: "Check if a string is a palindrome, ignoring case and spaces."
+    expected_disposition: APPROVE
+    required_json_schema: reviewer_result
+    verification_classification: rubric_assisted
+    temperature: 0
+    num_predict: 512
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.0
+    rubric_rules:
+      - rule_id: palindrome_reviewer_approves
+        description: Approves the functionally correct implementation
+        type: required
+        weight: 3.0
+        matcher:
+          type: disposition
+          value: APPROVE
+      - rule_id: palindrome_reviewer_accepts_style_variance
+        description: Accepts different coding style when logic is correct
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["functionally correct", "style preference", "correct despite style"]
+      - rule_id: palindrome_reviewer_forbids_style_rejection
+        description: Does not reject the answer purely on style preference
+        type: forbidden
+        weight: 2.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["reject because", "must be rewritten for style"]
+          allow_negated_mentions: true

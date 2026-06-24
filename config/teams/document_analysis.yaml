@@ -1,0 +1,38 @@
+# Document Analysis team configuration
+# 14–18 tasks
+
+team: document_analysis
+description: "Document analysis — fast worker and complex document roles. Uses local fixtures."
+
+notes:
+  - "Uses local text, Markdown, JSON, log, configuration, and policy fixtures"
+  - "Detect model multimodal capabilities through Ollama metadata"
+  - "Only create visual-document track when the model actually supports image input"
+  - "Do not assume vision capability from the model name"
+
+roles:
+  - id: fast_worker
+    description: "Routine document extraction, summarization, classification"
+    candidates:
+      - qwen3.5:9b
+      - gemma4:12b
+      - qwen2.5:14b-instruct
+      - phi4:14b
+    scoring_weights:
+      contract_score: 0.15
+      correctness_score: 0.35
+      completeness_score: 0.25
+      instruction_score: 0.15
+      latency_score: 0.10
+
+  - id: complex_document
+    description: "Complex document analysis, multi-document synthesis, fact extraction"
+    candidates:
+      - gemma4:26b
+      - gemma4:12b
+      - phi4-reasoning:14b
+    scoring_weights:
+      contract_score: 0.10
+      correctness_score: 0.35
+      completeness_score: 0.30
+      evidence_score: 0.25

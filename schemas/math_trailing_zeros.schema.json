@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MathTrailingZeros",
+  "type": "object",
+  "required": ["final_answer", "base_factorization", "v2", "v3"],
+  "properties": {
+    "final_answer": {"type": "integer"},
+    "base_factorization": {
+      "type": "object",
+      "required": ["2", "3"],
+      "properties": {
+        "2": {"type": "integer"},
+        "3": {"type": "integer"}
+      },
+      "additionalProperties": false
+    },
+    "v2": {"type": "integer"},
+    "v3": {"type": "integer"}
+  },
+  "additionalProperties": true
+}

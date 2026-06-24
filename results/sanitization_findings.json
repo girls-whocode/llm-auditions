@@ -1,0 +1,50 @@
+[
+  {
+    "file": "results/pass2-resume-proof/run_manifest.json",
+    "line_number": 13,
+    "pattern": "Hex secret (32+ chars)",
+    "snippet": "\"git_commit\": \"97e7166b04c8cb62e2559ee0bbcfa0ac762e3b87\","
+  },
+  {
+    "file": "results/pass2-resume-proof/run_manifest.json",
+    "line_number": 43746,
+    "pattern": "Hex secret (32+ chars)",
+    "snippet": "\"gemma4:12b\": \"4eb23ef187e2c5462566d6a1d3bbbc2f1346d0b4327cbb66d58fffbcc9b2b05c\""
+  },
+  {
+    "file": "/home/jessica/jbp-ai-auditions/llm-auditions/tests/test_packaging.py",
+    "line_number": 20,
+    "pattern": "Private key header",
+    "snippet": "(tmp_path / \"secret_key.txt\").write_text(\"-----BEGIN PRIVATE KEY-----\\nABCDEFGH\\n-----END PRIVATE KEY-----\")"
+  },
+  {
+    "file": "/home/jessica/jbp-ai-auditions/llm-auditions/tests/test_packaging.py",
+    "line_number": 26,
+    "pattern": "AWS access key",
+    "snippet": "(tmp_path / \"config.txt\").write_text(\"aws_access_key_id = AKIAIOSFODNN7EXAMPLE\")"
+  },
+  {
+    "file": "/home/jessica/jbp-ai-auditions/llm-auditions/tests/test_packaging.py",
+    "line_number": 31,
+    "pattern": "JWT token",
+    "snippet": "jwt = \"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c\""
+  },
+  {
+    "file": "/home/jessica/jbp-ai-auditions/llm-auditions/tests/test_packaging.py",
+    "line_number": 47,
+    "pattern": "Private key header",
+    "snippet": "(tmp_path / \"secret_key.txt\").write_text(\"-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----\")"
+  },
+  {
+    "file": "/home/jessica/jbp-ai-auditions/llm-auditions/tests/test_packaging.py",
+    "line_number": 52,
+    "pattern": "Private key header",
+    "snippet": "(tmp_path / \"secret_key.txt\").write_text(\"-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----\")"
+  },
+  {
+    "file": "/home/jessica/jbp-ai-auditions/llm-auditions/tests/test_packaging.py",
+    "line_number": 65,
+    "pattern": "Generic password field",
+    "snippet": "(git_dir / \"config\").write_text(\"password=supersecret123456\")"
+  }
+]

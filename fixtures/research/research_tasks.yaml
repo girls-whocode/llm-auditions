@@ -1,0 +1,265 @@
+# Research team tasks — uses supplied evidence packets; no live internet required
+
+tasks:
+  - id: research_planner_decompose_question
+    team: research
+    role: query_planner
+    category: query_planning
+    smoke: true
+    system_prompt: |
+      You are a research query planner. Return a JSON research plan.
+      Respond only with the JSON object.
+      Schema: {
+        "question_decomposition": [...],
+        "search_queries": [...],
+        "source_requirements": [...],
+        "freshness_requirements": "...",
+        "official_source_requirements": [...],
+        "facts_requiring_verification": [...],
+        "stop_conditions": [...]
+      }
+    prompt: |
+      Plan research for: "What are the security implications of using Docker in production,
+      and what are the current best practices for container hardening?"
+    required_json_schema: research_plan
+    verification_classification: rubric_assisted
+    temperature: 0
+    num_predict: 2048
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    rubric_rules:
+      - rule_id: planner_separates_security_and_hardening
+        description: Decomposes the question into security implications and hardening practices
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "security implications"
+            - "container hardening"
+      - rule_id: planner_identifies_official_sources
+        description: Requires official sources such as Docker documentation or security advisories
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "official Docker documentation"
+            - "CVE database"
+            - "vendor security advisories"
+      - rule_id: planner_marks_freshness_requirement
+        description: Notes that best practices require current verification
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "current best practices"
+            - "requires current verification"
+            - "freshness requirement"
+
+  - id: research_planner_current_info_flag
+    team: research
+    role: query_planner
+    category: epistemics
+    smoke: true
+    description: "Planner must flag that question requires current external research"
+    system_prompt: |
+      You are a research query planner. Return a JSON research plan.
+      In freshness_requirements, explicitly state when current information is required.
+    prompt: |
+      Plan research for: "What are the latest CVEs affecting the Linux kernel?"
+    required_json_schema: research_plan
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "current"
+      - "recent"
+    temperature: 0
+    num_predict: 1024
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.5
+    rubric_rules:
+      - rule_id: kernel_cve_requires_current_sources
+        description: States that live current sources are required for latest CVEs
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "current"
+            - "recent"
+            - "latest CVEs require live sources"
+      - rule_id: kernel_cve_identifies_source_classes
+        description: Identifies official or current vulnerability sources to query
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "NVD"
+            - "Linux kernel advisories"
+            - "vendor security advisories"
+      - rule_id: kernel_cve_no_static_answer
+        description: Does not treat model memory as enough for latest CVEs
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "the latest CVEs are"
+            - "currently active CVEs are"
+          allow_negated_mentions: true
+    criticality: high
+
+  - id: research_synthesizer_cite_evidence
+    team: research
+    role: evidence_synthesizer
+    category: evidence_synthesis
+    smoke: true
+    system_prompt: |
+      You are a research evidence synthesizer. Return a JSON evidence synthesis.
+      Respond only with the JSON object.
+      Base ALL findings ONLY on the supplied evidence. Cite source IDs.
+      Do not use model memory for factual claims.
+      Schema: {
+        "supported_findings": [{"finding": "...", "source_ids": [...]}],
+        "source_identifiers": [...],
+        "conflicts": [{"description": "...", "source_ids": [...]}],
+        "missing_evidence": [...],
+        "inferences": [{"inference": "...", "basis": "..."}],
+        "confidence": "HIGH|MEDIUM|LOW|INSUFFICIENT_EVIDENCE",
+        "research_gaps": [...]
+      }
+    prompt: |
+      Evidence packet:
+      DOC-001: PostgreSQL 15 introduces logical replication improvements. Performance
+               benchmarks show 40% throughput improvement for write-heavy workloads
+               compared to PostgreSQL 14 under equivalent hardware.
+      DOC-002: PostgreSQL 14 EOL date is November 2026 per the official support policy.
+      DOC-003: Upgrading PostgreSQL major versions requires a dump-and-restore or
+               pg_upgrade procedure. In-place minor version upgrades are supported.
+      DOC-004: The pg_upgrade tool requires the old and new binary directories and
+               data directories as input parameters.
+
+      Synthesize the evidence to answer: "Should we upgrade from PostgreSQL 14 to 15,
+      and what is the upgrade procedure?"
+    required_json_schema: evidence_synthesis
+    verification_classification: rubric_assisted
+    fixture_paths:
+      - fixtures/research/evidence/DOC-001.md
+      - fixtures/research/evidence/DOC-002.md
+      - fixtures/research/evidence/DOC-003.md
+      - fixtures/research/evidence/DOC-004.md
+    evidence:
+      required_ids:
+        - DOC-001
+        - DOC-003
+      optional_ids:
+        - DOC-002
+        - DOC-004
+    required_concepts:
+      - "DOC-001"
+      - "DOC-003"
+    verifier: evidence
+    temperature: 0
+    num_predict: 2048
+    think_modes: ["false"]
+    weight: 2.0
+    rubric_rules:
+      - rule_id: cites_upgrade_benefit_evidence
+        description: Cites DOC-001 when discussing upgrade benefits
+        type: required
+        weight: 3.0
+        matcher:
+          type: citation_id
+          citation_ids: ["DOC-001"]
+      - rule_id: cites_upgrade_procedure_evidence
+        description: Cites DOC-003 when discussing the upgrade procedure
+        type: required
+        weight: 3.0
+        matcher:
+          type: citation_id
+          citation_ids: ["DOC-003"]
+      - rule_id: avoids_unsupported_upgrade_claims
+        description: Does not invent unsupported claims about PostgreSQL 15
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "breaking change"
+            - "zero downtime guaranteed"
+          allow_negated_mentions: true
+    criticality: high
+
+  - id: research_synthesizer_conflict_detection
+    team: research
+    role: evidence_synthesizer
+    category: evidence_synthesis
+    smoke: false
+    description: "Synthesizer must identify conflicting evidence across documents"
+    system_prompt: |
+      You are a research evidence synthesizer. Return a JSON evidence synthesis.
+      Identify ALL conflicts between evidence sources.
+    prompt: |
+      Evidence packet:
+      DOC-010: Redis 7.0 achieves 1 million operations per second on a single node
+               with 32 GB RAM in benchmark conditions.
+      DOC-011: Redis is single-threaded for command processing and typically achieves
+               100,000–200,000 operations per second for complex workloads.
+      DOC-012: Redis Cluster provides horizontal scaling. Write operations require
+               coordination across cluster nodes.
+
+      Question: What throughput should we expect from a Redis deployment?
+    required_json_schema: evidence_synthesis
+    fixture_paths:
+      - fixtures/research/evidence/DOC-010.md
+      - fixtures/research/evidence/DOC-011.md
+      - fixtures/research/evidence/DOC-012.md
+    verification_classification: rubric_assisted
+    evidence:
+      required_ids:
+        - DOC-010
+        - DOC-011
+      optional_ids:
+        - DOC-012
+    required_concepts:
+      - "conflict"
+      - "DOC-010"
+      - "DOC-011"
+    verifier: evidence
+    temperature: 0
+    num_predict: 2048
+    think_modes: ["false"]
+    weight: 2.0
+    rubric_rules:
+      - rule_id: cites_conflicting_sources
+        description: Cites both DOC-010 and DOC-011 when describing the throughput conflict
+        type: required
+        weight: 3.0
+        matcher:
+          type: citation_id
+          citation_ids: ["DOC-010", "DOC-011"]
+      - rule_id: acknowledges_benchmark_vs_real_workload
+        description: Explains the difference between benchmark conditions and complex workloads
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "benchmark conditions"
+            - "complex workloads"
+            - "results differ by workload"
+      - rule_id: avoids_single_number_overclaim
+        description: Does not present a single definitive throughput number without qualification
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "Redis throughput will be exactly"
+            - "you should expect exactly 1 million"
+          allow_negated_mentions: true
+    criticality: high

@@ -1,0 +1,37 @@
+# Smoke profile — fast validation of project health
+# Uses one or two representative tasks per role
+# think=false only
+# Serial execution
+
+profile: smoke
+description: "Quick smoke test — baseline suite + one representative task per role. think=false."
+
+think_modes: [false]
+concurrency: 1
+temperature: 0
+num_predict: 2048
+
+# Which teams and roles to include
+include_teams:
+  - baseline
+  - general_knowledge
+  - research
+  - linux_infrastructure
+  - engineering_hardware
+  - development
+  - mathematics
+  - security
+  - architecture
+  - document_analysis
+  - integration_review
+  - language_knowledge
+
+task_filter:
+  # Only tasks tagged smoke=true or in the smoke subset
+  smoke_only: true
+
+# Override per-team candidate lists to run only the smallest model per role
+# to keep smoke fast. Full candidate lists run in standard/exhaustive.
+use_smoke_candidates: true
+max_requests: 40
+smoke_tasks_per_role: 2

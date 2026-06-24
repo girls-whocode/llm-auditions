@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MathSumOfDivisors",
+  "type": "object",
+  "required": ["final_answer", "prime_factorization", "sigma_terms", "method_summary"],
+  "properties": {
+    "final_answer": {"type": "integer"},
+    "prime_factorization": {
+      "type": "object",
+      "required": ["2", "3", "5"],
+      "properties": {
+        "2": {"type": "integer", "const": 3},
+        "3": {"type": "integer", "const": 2},
+        "5": {"type": "integer", "const": 1}
+      },
+      "additionalProperties": false
+    },
+    "sigma_terms": {"type": "array", "items": {"type": "integer"}, "minItems": 3},
+    "method_summary": {"type": "string"}
+  },
+  "additionalProperties": true
+}

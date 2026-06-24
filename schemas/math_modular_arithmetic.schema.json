@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MathModularArithmetic",
+  "type": "object",
+  "required": ["final_answer", "method_summary", "modulus", "base", "exponent"],
+  "properties": {
+    "final_answer": {"type": "integer"},
+    "method_summary": {"type": "string"},
+    "modulus": {"type": "integer", "const": 1000000007},
+    "base": {"type": "integer", "const": 2},
+    "exponent": {"type": "integer", "const": 100}
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,59 @@
+# Development team configuration
+# 18–24 tasks
+
+team: development
+description: "Software development — fast worker, advanced worker, and code review roles."
+
+notes:
+  - "Deterministic testing is the correctness authority"
+  - "Generated code runs only inside constrained temporary directories"
+  - "Never execute commands that modify system state, firewall rules, users, etc."
+
+roles:
+  - id: fast_worker
+    description: "Routine code tasks; correct syntax, semantics, tests"
+    candidates:
+      - qwen2.5-coder:14b
+      - qwen2.5-coder:7b
+      - qwen3-coder:30b
+      - codestral:22b
+    scoring_weights:
+      contract_score: 0.10
+      deterministic_test_score: 0.45
+      correctness_score: 0.25
+      instruction_score: 0.10
+      latency_score: 0.10
+
+  - id: advanced_worker
+    description: "Complex code tasks; architecture decisions; subtle bug identification"
+    candidates:
+      - qwen3-coder:30b
+      - codestral:22b
+      - qwen2.5-coder:14b
+    scoring_weights:
+      contract_score: 0.10
+      deterministic_test_score: 0.50
+      correctness_score: 0.30
+      instruction_score: 0.10
+
+  - id: code_review
+    description: "Reviews code for correctness, security, style, subtle bugs"
+    candidates:
+      - qwen2.5-coder:7b
+      - qwen2.5-coder:14b
+      - gemma4:12b
+      - qwen2.5:14b-instruct
+    scoring_weights:
+      contract_score: 0.15
+      correctness_score: 0.35
+      safety_score: 0.25
+      instruction_score: 0.25
+
+escalation_measurement:
+  enabled: true
+  fast_worker_candidates:
+    - qwen2.5-coder:7b
+    - qwen2.5-coder:14b
+  heavy_worker_candidates:
+    - qwen3-coder:30b
+    - codestral:22b

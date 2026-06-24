@@ -1,0 +1,25 @@
+# Language Knowledge team configuration
+# 12–16 tasks
+
+team: language_knowledge
+description: "Language editing — improves clarity without altering approved facts."
+
+notes:
+  - "Editor must improve clarity, grammar, structure, tone, concision"
+  - "Must NOT change approved facts, alter numbers, add recommendations, remove caveats"
+  - "Must NOT change certainty, invent citations, modify commands/code semantics"
+  - "Includes fixtures where seemingly harmless editing would accidentally alter facts"
+
+roles:
+  - id: editor
+    description: "Edits language for clarity/style while preserving all factual content"
+    candidates:
+      - qwen3.5:9b
+      - gemma4:12b
+      - qwen2.5:14b-instruct
+      - phi4:14b
+    scoring_weights:
+      contract_score: 0.10
+      fact_preservation_score: 0.45
+      instruction_score: 0.25
+      correctness_score: 0.20

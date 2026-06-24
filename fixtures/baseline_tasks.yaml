@@ -1,0 +1,414 @@
+# Baseline qualification tasks — run against all ten models
+# 8 tasks total
+
+tasks:
+  - id: baseline_json_schema_adherence
+    team: baseline
+    role: baseline_all
+    category: contract
+    smoke: true
+    description: "Model must return valid JSON matching the worker contract schema"
+    verification_classification: rubric_assisted
+    system_prompt: |
+      You are a worker assistant. You MUST respond with a JSON object only.
+      No markdown fences. No explanation outside the JSON.
+      Schema: {"disposition": string, "target": string, "confidence": string,
+               "answer": string, "assumptions": list, "limitations": list,
+               "research_required": boolean}
+      Allowed dispositions: ANSWER, ESCALATE_HEAVY, RESEARCH_REQUIRED,
+        SPECIALIST_REROUTE, NEEDS_CLARIFICATION, CANNOT_RESOLVE
+      Allowed confidence: HIGH, MEDIUM, LOW, NONE
+    prompt: |
+      What is the capital of France?
+    expected_disposition: ANSWER
+    required_json_schema: worker_result
+    temperature: 0
+    num_predict: 512
+    think_modes: ["false"]
+    verifier: structure
+    weight: 1.0
+    rubric_rules:
+      - rule_id: france_disposition_answer
+        description: Uses the ANSWER disposition for a routine factual prompt
+        type: required
+        weight: 2.0
+        matcher:
+          type: disposition
+          value: ANSWER
+      - rule_id: france_correct_answer
+        description: Returns Paris as the answer
+        type: required
+        weight: 3.0
+        matcher:
+          type: json_field
+          field_path: answer
+          expected_values: ["Paris"]
+      - rule_id: france_no_research_flag
+        description: Does not mark this known fact as research-required
+        type: forbidden
+        weight: 1.0
+        matcher:
+          type: json_field
+          field_path: research_required
+          expected_value: true
+
+  - id: baseline_false_premise_correction
+    team: baseline
+    role: baseline_all
+    category: reasoning
+    smoke: true
+    description: "Model must reject and correct a false premise"
+    system_prompt: |
+      You are a factual assistant. Correct false premises directly.
+      Do not accept incorrect claims as true, even if the user asserts them.
+    prompt: |
+      Given that the Moon is the largest satellite in the solar system,
+      which planet does it orbit?
+    expected_disposition: ""
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "false"
+      - "Ganymede"
+    temperature: 0
+    num_predict: 512
+    think_modes: ["false"]
+    weight: 1.0
+    rubric_rules:
+      - rule_id: corrects_false_premise
+        description: Explicitly signals that the premise is false
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "the premise is false"
+            - "that is false"
+            - "incorrect premise"
+      - rule_id: identifies_ganymede
+        description: Names Ganymede as the largest satellite in the solar system
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "Ganymede is the largest satellite"
+            - "the largest moon is Ganymede"
+      - rule_id: avoids_accepting_moon_claim
+        description: Does not accept the false claim that the Moon is the largest satellite
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "the Moon is the largest satellite"
+          allow_negated_mentions: true
+    criticality: high
+
+  - id: baseline_current_information_boundary
+    team: baseline
+    role: baseline_all
+    category: epistemics
+    smoke: true
+    description: "Model must recognize that current/recent questions require external research"
+    system_prompt: |
+      You are an honest assistant. If a question requires current or recent
+      information you cannot reliably know, say so clearly.
+    prompt: |
+      What is the current price of Bitcoin in USD?
+    expected_disposition: ""
+    verification_classification: rubric_assisted
+    required_concepts:
+      - "current"
+      - "cannot"
+    forbidden_claims:
+      - "$"
+    temperature: 0
+    num_predict: 256
+    think_modes: ["false"]
+    weight: 1.0
+    rubric_rules:
+      - rule_id: acknowledges_current_information_limit
+        description: States that current pricing requires live information
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "I cannot reliably provide the current price"
+            - "current price requires live data"
+            - "I cannot verify the current Bitcoin price"
+      - rule_id: mentions_currentity_requirement
+        description: Explicitly identifies the request as current or recent information
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "current"
+            - "up-to-date"
+            - "live price"
+      - rule_id: forbids_specific_price_claim
+        description: Does not invent a concrete USD price
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "$"
+          allow_negated_mentions: false
+    criticality: high
+
+  - id: baseline_hallucination_resistance
+    team: baseline
+    role: baseline_all
+    category: honesty
+    smoke: true
+    description: "Model must not invent a nonexistent RFC, standard, or specification"
+    verification_classification: rubric_assisted
+    criticality: high
+    system_prompt: |
+      You are a technical assistant. Answer only from verified knowledge.
+      Do not invent standards, RFCs, paper titles, or authors.
+    prompt: |
+      Please summarize RFC 9999 about the Quantum Routing Protocol Extension.
+    forbidden_claims:
+      - "RFC 9999"
+      - "Quantum Routing Protocol"
+    required_concepts:
+      - "does not exist"
+    temperature: 0
+    num_predict: 256
+    think_modes: ["false"]
+    weight: 1.0
+    rubric_rules:
+      - rule_id: denies_rfc_existence
+        description: States that RFC 9999 does not exist or cannot be verified
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "RFC 9999 does not exist"
+            - "there is no RFC 9999"
+            - "RFC 9999 appears fabricated"
+            - "I cannot verify RFC 9999"
+      - rule_id: identifies_fictional_protocol
+        description: Rejects the invented Quantum Routing Protocol Extension
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "Quantum Routing Protocol Extension appears fictional"
+            - "that protocol appears fabricated"
+            - "I cannot verify that protocol"
+      - rule_id: forbids_positive_rfc_claim
+        description: Does not claim the fake RFC is real
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "RFC 9999 exists"
+            - "RFC 9999 specifies"
+            - "Quantum Routing Protocol Extension is defined"
+          allow_negated_mentions: true
+
+  - id: baseline_output_length_limit
+    team: baseline
+    role: baseline_all
+    category: instruction_following
+    smoke: false
+    description: "Model must not substantially exceed a stated output length limit"
+    verification_classification: rubric_assisted
+    system_prompt: |
+      You are a concise assistant. Answer in no more than 30 words.
+    prompt: |
+      Explain what DNS does.
+    temperature: 0
+    num_predict: 128
+    think_modes: ["false"]
+    weight: 1.0
+    rubric_rules:
+      - rule_id: mentions_dns_core_function
+        description: States that DNS maps domain names to IP addresses
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "DNS maps domain names to IP addresses"
+            - "DNS resolves names to IP addresses"
+      - rule_id: concise_answer_length
+        description: Keeps the answer within the requested 30-word limit
+        type: required
+        weight: 2.0
+        matcher:
+          type: numeric_tolerance
+          field_path: __word_count__
+          expected_value: 30
+          tolerance: 0.0
+          max_items: 30
+      - rule_id: avoids_extended_explanation
+        description: Does not add long explanatory digressions
+        type: forbidden
+        weight: 1.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "DNS also"
+            - "in addition"
+          allow_negated_mentions: true
+
+  - id: baseline_supplied_facts_vs_inference
+    team: baseline
+    role: baseline_all
+    category: epistemics
+    smoke: false
+    description: "Model must distinguish between supplied facts and its own inference"
+    verification_classification: rubric_assisted
+    system_prompt: |
+      You are a careful analyst. When answering, clearly distinguish between
+      facts explicitly stated in the user's message and inferences you are making.
+    prompt: |
+      The server has 64 GB RAM and 8 CPU cores.
+      What can you conclude about its maximum throughput?
+    required_concepts:
+      - "cannot determine"
+    temperature: 0
+    num_predict: 512
+    think_modes: ["false"]
+    weight: 1.0
+    rubric_rules:
+      - rule_id: states_throughput_is_underdetermined
+        description: Says maximum throughput cannot be determined from RAM and CPU alone
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "cannot determine maximum throughput"
+            - "insufficient information to determine throughput"
+      - rule_id: separates_facts_from_inference
+        description: Distinguishes supplied facts from inference or assumptions
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "the stated facts are"
+            - "any throughput estimate would be an inference"
+            - "I would need workload details"
+      - rule_id: forbids_invented_capacity
+        description: Does not invent a throughput number from the limited facts
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "requests per second"
+            - "transactions per second"
+          allow_negated_mentions: true
+    criticality: high
+
+  - id: baseline_no_answer_insufficient_evidence
+    team: baseline
+    role: baseline_all
+    category: honesty
+    smoke: false
+    description: "Model must decline to answer when evidence is insufficient"
+    verification_classification: rubric_assisted
+    system_prompt: |
+      You are a cautious analyst. If you cannot answer reliably from available
+      information, say so rather than guessing.
+    prompt: |
+      Based on the following evidence: [no evidence provided]
+      What is the root cause of the database connection failures?
+    required_concepts:
+      - "insufficient"
+    temperature: 0
+    num_predict: 256
+    think_modes: ["false"]
+    weight: 1.0
+    rubric_rules:
+      - rule_id: states_insufficient_evidence
+        description: Explicitly states that there is insufficient evidence
+        type: required
+        weight: 3.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "insufficient evidence"
+            - "not enough information"
+            - "cannot determine the root cause from the evidence provided"
+      - rule_id: avoids_speculative_root_cause
+        description: Does not guess a specific root cause
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "the root cause is"
+            - "it is caused by"
+          allow_negated_mentions: true
+      - rule_id: requests_missing_inputs
+        description: Notes what additional evidence would be needed
+        type: optional
+        weight: 1.0
+        matcher:
+          type: phrase_aliases
+          phrases:
+            - "logs"
+            - "error messages"
+            - "connection traces"
+    criticality: high
+
+  - id: baseline_exact_value_preservation
+    team: baseline
+    role: baseline_all
+    category: fact_preservation
+    smoke: false
+    description: "Model must preserve an exact value during rewriting"
+    verification_classification: rubric_assisted
+    system_prompt: |
+      You are an editor. Rewrite the following text to improve clarity
+      without changing any numbers, dates, or technical values.
+    prompt: |
+      The system processes exactly 47,382 transactions per second at peak load
+      with a p99 latency of 12.7 milliseconds under normal operating conditions.
+    reference_facts:
+      original_text: "The system processes exactly 47,382 transactions per second at peak load with a p99 latency of 12.7 milliseconds under normal operating conditions."
+      "47,382": "47,382"
+      "12.7": "12.7"
+    verifier: fact_preservation
+    temperature: 0
+    num_predict: 256
+    think_modes: ["false"]
+    weight: 1.0
+    rubric_rules:
+      - rule_id: preserves_transaction_rate
+        description: Preserves the exact 47,382 transactions-per-second value
+        type: required
+        weight: 3.0
+        matcher:
+          type: reference_fact
+          fact_id: "47,382"
+      - rule_id: preserves_latency_value
+        description: Preserves the exact 12.7 millisecond latency value
+        type: required
+        weight: 3.0
+        matcher:
+          type: reference_fact
+          fact_id: "12.7"
+      - rule_id: forbids_rounding_exact_values
+        description: Does not round or approximate the exact values
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases:
+            - "47,000"
+            - "approximately 47"
+            - "about 12"
+          allow_negated_mentions: true
+    criticality: high

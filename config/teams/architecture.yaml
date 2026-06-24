@@ -1,0 +1,39 @@
+# Architecture team configuration
+# 14–18 tasks
+
+team: architecture
+description: "Architecture — worker and reviewer roles. Tests assumption control and reasoning quality."
+
+notes:
+  - "Tests measure: assumption control, capacity reasoning, failure-domain identification"
+  - "Bottleneck analysis, tradeoff quality, conflict detection, measurement requirements"
+  - "Refusal to invent exact capacity guarantees without data"
+  - "Staged upgrade planning"
+
+roles:
+  - id: worker
+    description: "Architecture analysis, tradeoff reasoning, failure domain identification"
+    candidates:
+      - gemma4:26b
+      - phi4-reasoning:14b
+      - gemma4:12b
+      - phi4:14b
+      - qwen2.5:14b-instruct
+    scoring_weights:
+      contract_score: 0.10
+      correctness_score: 0.30
+      completeness_score: 0.25
+      evidence_score: 0.20
+      instruction_score: 0.15
+
+  - id: reviewer
+    description: "Reviews architecture outputs; detects overclaims and missing data"
+    candidates:
+      - gemma4:12b
+      - qwen3.5:9b
+      - phi4:14b
+    scoring_weights:
+      contract_score: 0.15
+      correctness_score: 0.30
+      escalation_score: 0.30
+      instruction_score: 0.25

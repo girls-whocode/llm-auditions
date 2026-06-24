@@ -1,0 +1,226 @@
+# Language Knowledge — editor tasks
+# Editor must improve clarity without altering approved facts
+
+tasks:
+  - id: lang_edit_basic_clarity
+    team: language_knowledge
+    role: editor
+    category: editing
+    smoke: true
+    system_prompt: |
+      You are a language editor. Improve the clarity, grammar, and concision of the text.
+      Do NOT change: numbers, dates, model names, commands, paths, risk levels,
+      certainty words, negations, caveats, or recommendations.
+      Return only the edited text, no commentary.
+    prompt: |
+      Original text:
+      "The system, which was deployed in the month of March in the year 2023,
+      does process approximately 47,382 transactions per second under the conditions
+      that are considered normal operating conditions, with a latency at the 99th
+      percentile of no more than 12.7 milliseconds."
+    reference_facts:
+      original_text: "The system, which was deployed in the month of March in the year 2023, does process approximately 47,382 transactions per second under the conditions that are considered normal operating conditions, with a latency at the 99th percentile of no more than 12.7 milliseconds."
+      "47,382": "47,382"
+      "12.7": "12.7"
+      "2023": "2023"
+      "99th percentile": "99th"
+    verifier: fact_preservation
+    verification_classification: rubric_assisted
+    temperature: 0.3
+    num_predict: 512
+    think_modes: ["false"]
+    weight: 1.5
+    rubric_rules:
+      - rule_id: clarity_preserves_47382
+        description: Preserves the exact 47,382 value
+        type: required
+        weight: 2.0
+        matcher:
+          type: reference_fact
+          fact_id: "47,382"
+      - rule_id: clarity_preserves_12_7
+        description: Preserves the exact 12.7 millisecond value
+        type: required
+        weight: 2.0
+        matcher:
+          type: reference_fact
+          fact_id: "12.7"
+      - rule_id: clarity_preserves_2023
+        description: Preserves the 2023 deployment year
+        type: required
+        weight: 2.0
+        matcher:
+          type: reference_fact
+          fact_id: "2023"
+      - rule_id: clarity_forbids_rounding
+        description: Does not round or approximate preserved values
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["47,000", "about 12", "around 2023"]
+          allow_negated_mentions: true
+    criticality: high
+
+  - id: lang_edit_preserve_negation
+    team: language_knowledge
+    role: editor
+    category: editing
+    smoke: true
+    description: "Editing must not accidentally remove a critical negation"
+    system_prompt: |
+      You are a language editor. Improve clarity and grammar.
+      Do NOT change meaning, remove negations, or alter risk assessments.
+      Return only the edited text.
+    prompt: |
+      Original text:
+      "The migration procedure MUST NOT be run on production systems without
+      a verified backup. The rollback process has not been tested in environments
+      with more than 10 TB of data. The vendor does not guarantee compatibility
+      with PostgreSQL versions prior to 13."
+    reference_facts:
+      original_text: "The migration procedure MUST NOT be run on production systems without a verified backup. The rollback process has not been tested in environments with more than 10 TB of data. The vendor does not guarantee compatibility with PostgreSQL versions prior to 13."
+      "MUST NOT": "not"
+      "has not been tested": "not"
+      "does not guarantee": "not"
+    verifier: fact_preservation
+    verification_classification: rubric_assisted
+    temperature: 0.3
+    num_predict: 512
+    think_modes: ["false"]
+    weight: 2.0
+    rubric_rules:
+      - rule_id: negation_preserves_must_not
+        description: Preserves the MUST NOT prohibition
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["MUST NOT", "must not"]
+      - rule_id: negation_preserves_unverified_rollback
+        description: Preserves the statement that rollback has not been tested
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["has not been tested", "not been tested"]
+      - rule_id: negation_preserves_no_guarantee
+        description: Preserves the statement that compatibility is not guaranteed
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["does not guarantee", "not guarantee"]
+      - rule_id: negation_forbids_reversal
+        description: Does not reverse the meaning of any negated safety statement
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["MUST be run", "has been tested", "does guarantee compatibility"]
+          allow_negated_mentions: true
+    criticality: critical
+
+  - id: lang_edit_preserve_numbers
+    team: language_knowledge
+    role: editor
+    category: editing
+    smoke: false
+    description: "Editing must not round, approximate, or change exact figures"
+    system_prompt: |
+      You are a language editor. Improve clarity only.
+      Preserve ALL numbers exactly as written.
+      Return only the edited text.
+    prompt: |
+      Original text:
+      "The configuration requires setting the timeout to 2,147,483,647 milliseconds,
+      which equals 2^31-1, the maximum value of a 32-bit signed integer.
+      The buffer size must be exactly 65,536 bytes (64 KB).
+      The API rate limit is 1,000 requests per 60 seconds."
+    reference_facts:
+      original_text: "The configuration requires setting the timeout to 2,147,483,647 milliseconds, which equals 2^31-1, the maximum value of a 32-bit signed integer. The buffer size must be exactly 65,536 bytes (64 KB). The API rate limit is 1,000 requests per 60 seconds."
+      "2,147,483,647": "2,147,483,647"
+      "65,536": "65,536"
+      "1,000": "1,000"
+    verifier: fact_preservation
+    verification_classification: rubric_assisted
+    temperature: 0.3
+    num_predict: 512
+    think_modes: ["false"]
+    weight: 1.5
+    rubric_rules:
+      - rule_id: numbers_preserve_timeout
+        description: Preserves 2,147,483,647 exactly
+        type: required
+        weight: 2.0
+        matcher:
+          type: reference_fact
+          fact_id: "2,147,483,647"
+      - rule_id: numbers_preserve_buffer
+        description: Preserves 65,536 exactly
+        type: required
+        weight: 2.0
+        matcher:
+          type: reference_fact
+          fact_id: "65,536"
+      - rule_id: numbers_preserve_rate_limit
+        description: Preserves 1,000 exactly
+        type: required
+        weight: 2.0
+        matcher:
+          type: reference_fact
+          fact_id: "1,000"
+      - rule_id: numbers_forbid_approximation
+        description: Does not approximate the exact figures
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["2.1 billion", "about 65536", "roughly 1000"]
+          allow_negated_mentions: true
+    criticality: high
+
+  - id: lang_edit_no_new_recommendations
+    team: language_knowledge
+    role: editor
+    category: editing
+    smoke: false
+    edge_case: true
+    description: "Editor must not add new recommendations while improving wording"
+    system_prompt: |
+      You are a language editor. Improve clarity only.
+      Do NOT add new recommendations, caveats, or information not in the original.
+      Return only the edited text.
+    prompt: |
+      Original text:
+      "Users should change their password periodically."
+    reference_facts:
+      original_text: "Users should change their password periodically."
+    verifier: fact_preservation
+    verification_classification: rubric_assisted
+    forbidden_claims:
+      - "every 90 days"
+      - "two-factor"
+      - "at least"
+      - "strong password"
+    temperature: 0.3
+    num_predict: 256
+    think_modes: ["false"]
+    weight: 2.0
+    rubric_rules:
+      - rule_id: recommendation_preserves_periodically
+        description: Preserves the original periodic-password-change recommendation only
+        type: required
+        weight: 2.0
+        matcher:
+          type: phrase_aliases
+          phrases: ["periodically"]
+      - rule_id: recommendation_forbids_new_advice
+        description: Does not add new security recommendations beyond the original text
+        type: hard_gate
+        weight: 4.0
+        matcher:
+          type: forbidden_claim
+          phrases: ["every 90 days", "two-factor", "at least", "strong password"]
+          allow_negated_mentions: true
+    criticality: high

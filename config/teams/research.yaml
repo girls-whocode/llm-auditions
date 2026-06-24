@@ -1,0 +1,39 @@
+# Research team configuration
+# 14–18 tasks
+
+team: research
+description: "Research — query planner and evidence synthesizer roles. Uses supplied evidence packets."
+
+notes:
+  - "Research audition uses supplied evidence packets with stable IDs (DOC-001, ADV-002, etc.)"
+  - "Do not require live internet access for correctness scoring"
+  - "Also test whether models correctly identify that current/recent questions require external research"
+
+roles:
+  - id: query_planner
+    description: "Designs search queries, decomposes questions, specifies evidence requirements"
+    candidates:
+      - qwen3.5:9b
+      - gemma4:12b
+      - qwen2.5:14b-instruct
+      - phi4:14b
+    output_schema: research_plan
+    scoring_weights:
+      contract_score: 0.20
+      completeness_score: 0.30
+      correctness_score: 0.25
+      instruction_score: 0.25
+
+  - id: evidence_synthesizer
+    description: "Synthesizes supplied evidence packets; must cite real fixture IDs"
+    candidates:
+      - gemma4:12b
+      - gemma4:26b
+      - qwen3.5:9b
+      - qwen2.5:14b-instruct
+    output_schema: evidence_synthesis
+    scoring_weights:
+      contract_score: 0.15
+      evidence_score: 0.40
+      correctness_score: 0.25
+      instruction_score: 0.20

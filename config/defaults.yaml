@@ -1,0 +1,60 @@
+# Default audition engine settings
+# All values can be overridden by team configs, task definitions, or CLI flags.
+
+engine:
+  # Ollama base URL — override with OLLAMA_URL environment variable
+  ollama_base_url: "http://localhost:11434"
+  # Default to no artificial timeout for local long-running models (null = no timeout)
+  request_timeout_seconds: null
+  # Run models serially by default; set >1 with caution — do not load multiple large models
+  concurrency: 1
+  # Unload model between tasks
+  keep_alive: 0
+  # Capture ollama ps before/after each model where possible
+  capture_ollama_ps: true
+
+defaults:
+  temperature: 0
+  num_ctx: 8192
+  num_predict: 4096
+  stream: false
+  think: false
+
+thinking_modes:
+  supported: [false, "low", "medium", "high", true]
+  default: false
+  # Models known to support structured thinking
+  think_capable_families:
+    - qwen3
+    - phi4
+
+output:
+  # Base directory for run outputs
+  results_dir: "results"
+  # Atomic write: write to .tmp then rename
+  atomic_writes: true
+  # Keep raw Ollama JSON alongside parsed output
+  save_raw_responses: true
+
+scoring:
+  # Do not let speed outweigh correctness or safety
+  latency_max_weight: 0.10
+  safety_min_weight: 0.20
+
+fairness:
+  # Use temperature=0 for all roles unless creative language testing
+  default_temperature: 0
+  # Version and hash all prompt templates
+  hash_prompts: true
+  # Record run order
+  record_run_order: true
+  # Separate latency from model-load time
+  separate_load_latency: true
+
+audit:
+  require_explicit_rubrics: true
+  require_evidence_id_fixture_match: true
+  require_rubric_finalization_field: false
+  require_comparison_fast_heavy_pairs: true
+  require_optional_rubric_bonus_semantics: true
+  forbid_development_execution_enable: true

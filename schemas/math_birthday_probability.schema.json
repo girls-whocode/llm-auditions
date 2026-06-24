@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MathBirthdayProbability",
+  "type": "object",
+  "required": ["final_answer", "group_size", "days", "event_description", "method_summary"],
+  "properties": {
+    "final_answer": {"type": "number"},
+    "group_size": {"type": "integer", "const": 23},
+    "days": {"type": "integer", "const": 365},
+    "event_description": {"type": "string"},
+    "method_summary": {"type": "string"}
+  },
+  "additionalProperties": true
+}

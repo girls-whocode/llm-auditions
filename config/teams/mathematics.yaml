@@ -1,0 +1,42 @@
+# Mathematics team configuration
+# 6–10 tasks
+
+team: mathematics
+description: "Mathematics solver role. Python/SymPy verification is the correctness authority."
+
+notes:
+  - "Do not trust the model's own verification statement"
+  - "Python integer arithmetic, fractions, NumPy where appropriate, SymPy"
+
+# Preserved mathematics problems from prior auditions
+preserved_problems:
+  - id: math_trailing_zeros_1000_base12
+    description: "Trailing zeros of 1000! in base 12"
+  - id: math_pell_x2_61y2_1
+    description: "Fundamental solution of x^2 - 61*y^2 = 1 (Pell equation)"
+  - id: math_eigenvalues_min_matrix_10x10
+    description: "Eigenvalues of matrix A_ij = min(i,j) for 10x10"
+
+roles:
+  - id: solver
+    description: "Solves mathematical problems; deterministic Python/SymPy verification"
+    candidates:
+      - phi4-reasoning:14b
+      - gemma4:26b
+      - phi4:14b
+      - qwen2.5:14b-instruct
+
+    # Leading hypothesis settings — preserved from prior auditions
+    leading_hypothesis:
+      model: phi4-reasoning:14b
+      think: false
+      temperature: 0
+      num_predict: 6144
+      correction_limit_tokens: 4096
+      maximum_corrections: 2
+
+    scoring_weights:
+      deterministic_test_score: 0.60
+      correctness_score: 0.25
+      contract_score: 0.10
+      efficiency_score: 0.05

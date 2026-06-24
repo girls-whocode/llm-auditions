@@ -1,0 +1,53 @@
+tasks:
+  - id: transport_prompt_only_echo
+    team: baseline
+    role: baseline_all
+    category: transport_validation
+    smoke: false
+    description: "Transport validation only, not role-quality evidence"
+    system_prompt: |
+      Return a concise answer.
+    prompt: |
+      Return the phrase: transport prompt only ok
+    verifier: structure
+    verification_classification: deterministic
+    structured_output_mode: prompt_only
+    required_json_schema: worker_result
+    think_modes: ["false"]
+    weight: 0.1
+
+  - id: transport_ollama_json_echo
+    team: baseline
+    role: baseline_all
+    category: transport_validation
+    smoke: false
+    description: "Transport validation only, not role-quality evidence"
+    system_prompt: |
+      Return JSON only.
+    prompt: |
+      Return JSON object with keys disposition, target, confidence, answer, assumptions,
+      limitations, research_required.
+    verifier: structure
+    verification_classification: deterministic
+    structured_output_mode: ollama_json
+    required_json_schema: worker_result
+    think_modes: ["false"]
+    weight: 0.1
+
+  - id: transport_ollama_schema_echo
+    team: baseline
+    role: baseline_all
+    category: transport_validation
+    smoke: false
+    description: "Transport validation only, not role-quality evidence"
+    system_prompt: |
+      Return JSON only.
+    prompt: |
+      Return JSON object with keys disposition, target, confidence, answer, assumptions,
+      limitations, research_required. Use concise values and include no extra keys.
+    verifier: structure
+    verification_classification: deterministic
+    structured_output_mode: ollama_schema
+    required_json_schema: worker_result
+    think_modes: ["false"]
+    weight: 0.1

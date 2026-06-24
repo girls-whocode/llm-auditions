@@ -1,0 +1,11 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MathPellSolution",
+  "type": "object",
+  "required": ["x", "y"],
+  "properties": {
+    "x": {"type": "integer"},
+    "y": {"type": "integer"}
+  },
+  "additionalProperties": true
+}

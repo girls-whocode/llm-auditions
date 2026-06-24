@@ -1,0 +1,33 @@
+# Engineering / Hardware team configuration
+# 14–18 tasks
+
+team: engineering_hardware
+description: "Engineering and hardware — worker and reviewer roles."
+
+roles:
+  - id: worker
+    description: "Hardware/engineering reasoning; refuses exact guarantees without data"
+    candidates:
+      - gemma4:26b
+      - gemma4:12b
+      - phi4-reasoning:14b
+      - phi4:14b
+      - qwen2.5:14b-instruct
+    scoring_weights:
+      contract_score: 0.15
+      correctness_score: 0.35
+      completeness_score: 0.25
+      escalation_score: 0.15
+      evidence_score: 0.10
+
+  - id: reviewer
+    description: "Reviews engineering answers; flags overclaims and missing data"
+    candidates:
+      - gemma4:12b
+      - qwen3.5:9b
+      - phi4:14b
+    scoring_weights:
+      contract_score: 0.15
+      correctness_score: 0.30
+      escalation_score: 0.25
+      instruction_score: 0.30

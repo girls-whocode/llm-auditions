@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WorkerResult",
+  "description": "Structured response contract for worker roles",
+  "type": "object",
+  "required": ["disposition", "target", "confidence", "answer", "assumptions", "limitations", "research_required"],
+  "additionalProperties": false,
+  "properties": {
+    "disposition": {
+      "type": "string",
+      "enum": ["ANSWER", "ESCALATE_HEAVY", "RESEARCH_REQUIRED", "SPECIALIST_REROUTE", "NEEDS_CLARIFICATION", "CANNOT_RESOLVE"]
+    },
+    "target": {
+      "type": "string",
+      "description": "Target team/role for rerouting, or NONE"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["HIGH", "MEDIUM", "LOW", "NONE"]
+    },
+    "answer": {
+      "type": "string",
+      "description": "The substantive answer text"
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "limitations": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "research_required": {
+      "type": "boolean"
+    }
+  }
+}

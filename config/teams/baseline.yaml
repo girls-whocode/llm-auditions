@@ -1,0 +1,29 @@
+# Baseline qualification suite — runs against all ten models
+# Detects general operational problems; not used to select one universal winner.
+# Keep short: 8 tasks.
+
+team: baseline
+description: "Common baseline qualification suite. Runs all models. Detects operational problems."
+
+roles:
+  - id: baseline_all
+    description: "Single qualification role run against every model"
+    primary_candidate: gemma4:12b
+    smoke_candidate: gemma4:12b
+    candidates:
+      - qwen3-coder:30b
+      - phi4-reasoning:14b
+      - gemma4:26b
+      - gemma4:12b
+      - qwen3.5:9b
+      - qwen2.5-coder:14b
+      - qwen2.5:14b-instruct
+      - codestral:22b
+      - qwen2.5-coder:7b
+      - phi4:14b
+
+scoring_weights:
+  contract_score: 0.25
+  correctness_score: 0.30
+  instruction_score: 0.25
+  fact_preservation_score: 0.20

@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EvidenceSynthesis",
+  "description": "Structured response contract for research evidence synthesizer role",
+  "type": "object",
+  "required": ["supported_findings", "source_identifiers", "conflicts", "missing_evidence", "inferences", "confidence", "research_gaps"],
+  "additionalProperties": false,
+  "properties": {
+    "supported_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["finding", "source_ids"],
+        "properties": {
+          "finding": {"type": "string"},
+          "source_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "source_identifiers": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "All DOC/ADV/POLICY IDs cited"
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "source_ids"],
+        "properties": {
+          "description": {"type": "string"},
+          "source_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "inferences": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["inference", "basis"],
+        "properties": {
+          "inference": {"type": "string"},
+          "basis": {"type": "string"}
+        }
+      }
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["HIGH", "MEDIUM", "LOW", "INSUFFICIENT_EVIDENCE"]
+    },
+    "research_gaps": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}
