@@ -564,7 +564,7 @@ class TaskResult(BaseModel):
     identity: ResultIdentity
     task: TaskDefinition
     response: ModelResponse
-    parsed_output: Optional[dict[str, Any]] = None
+    parsed_output: Optional[Any] = None
     schema_errors: list[str] = Field(default_factory=list)
     verifier_output: dict[str, Any] = Field(default_factory=dict)
     deterministic_results: list[dict[str, Any]] = Field(default_factory=list)
