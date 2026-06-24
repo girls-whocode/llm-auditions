@@ -1,6 +1,21 @@
 {
   "comparison_id": "sec_incident_response_002",
-  "track": "handoff",
-  "prompt": "Escalate incident-response decisions with evidence and containment discipline.",
-  "description": "Handoff comparison for security incident-response tasks."
+  "scenario_version": "1",
+  "title": "Suspicious outbound C2-like traffic triage",
+  "scenario": "An alert reports that process telemetry from prod-db-01 shows repeated outbound connections to 203.0.113.42:4444. There is no approved change ticket. Incident command needs immediate containment guidance, evidence-preservation steps, and criteria for escalation to deeper forensic response.",
+  "constraints": [
+    "Prioritize containment and evidence preservation.",
+    "Do not recommend irreversible host changes before triage captures.",
+    "Distinguish diagnosis steps from remediation actions."
+  ],
+  "required_facts": [
+    "Isolate or restrict suspicious traffic safely.",
+    "Preserve forensic evidence and timelines.",
+    "Escalate when compromise confidence exceeds initial threshold."
+  ],
+  "comparison_information_mode": "asymmetric",
+  "expected_escalation_conditions": [
+    "Evidence of persistence or lateral movement.",
+    "Unclear scope of compromise after initial containment."
+  ]
 }

@@ -1,6 +1,17 @@
 {
   "comparison_id": "eng_perf_claims_001",
-  "track": "independent",
-  "prompt": "Assess engineering performance guidance while preventing overclaims.",
-  "description": "Independent comparison for engineering performance-claim restraint."
+  "scenario_version": "1",
+  "title": "Vendor benchmark claim validation",
+  "scenario": "A vendor benchmark reports 2 ms p99 latency for a caching component in a controlled demo. Product management asks whether integrating the component guarantees 2 ms p99 for the production API across all traffic patterns.",
+  "constraints": [
+    "Do not convert vendor benchmark results into unconditional production guarantees.",
+    "Describe workload and environment differences that affect latency.",
+    "List required production measurements before commitment."
+  ],
+  "required_facts": [
+    "Benchmark context can differ from production behavior.",
+    "Latency guarantees require representative load testing.",
+    "Risk communication must include uncertainty and confidence limits."
+  ],
+  "comparison_information_mode": "symmetric"
 }

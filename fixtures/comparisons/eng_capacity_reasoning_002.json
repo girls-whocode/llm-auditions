@@ -1,6 +1,17 @@
 {
   "comparison_id": "eng_capacity_reasoning_002",
-  "track": "handoff",
-  "prompt": "Reason about engineering hardware capacity limits under constraints.",
-  "description": "Handoff comparison for engineering hardware capacity reasoning."
+  "scenario_version": "1",
+  "title": "Hardware capacity headroom escalation",
+  "scenario": "A service currently sustains 90,000 requests per minute. Forecast demand is 120,000 requests per minute, and each additional replica adds 15,000 requests per minute. Leadership requires at least 20% headroom for burst traffic and wants a plan that covers scaling lag risks.",
+  "constraints": [
+    "Show explicit capacity math.",
+    "Account for headroom, not only nominal demand.",
+    "Include operational risks during rapid spikes."
+  ],
+  "required_facts": [
+    "Headroom target changes required replica count.",
+    "Autoscaling lag can violate SLOs during bursts.",
+    "Recommendation must include monitoring and rollback triggers."
+  ],
+  "comparison_information_mode": "symmetric"
 }

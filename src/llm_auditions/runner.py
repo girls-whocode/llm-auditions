@@ -16,6 +16,7 @@ from typing import Any, Iterator
 
 from jsonschema import validate as jsonschema_validate
 
+from .comparisons import load_comparison_scenario, render_shared_scenario
 from .configuration import Configuration
 from .models import (
     EnvironmentInfo,
@@ -167,29 +168,37 @@ class AuditionRunner:
     def _task_hash(self, task: TaskDefinition) -> str:
         return hashlib.sha256(json.dumps(task.model_dump(mode="json"), sort_keys=True).encode()).hexdigest()[:16]
 
-    def _comparison_pair_key(self, task: TaskDefinition, row: PlannedRequest) -> tuple[str, str, str, str]:
+    def _comparison_pair_key(self, task: TaskDefinition, row: PlannedRequest) -> tuple[str, str, str, str, str]:
         return (
             task.comparison_id,
             task.comparison_track,
             str(row.requested_think_mode),
             str(row.structured_output_mode),
-            self._comparison_scenario_hash(task),
+            row.scenario_content_hash or self._comparison_scenario_hash(task),
         )
 
     def _comparison_scenario_hash(self, task: TaskDefinition) -> str:
-        seed = {
-            "comparison_id": task.comparison_id,
-            "comparison_track": task.comparison_track,
-            "scenario_ref": task.comparison_scenario_ref,
-            "fixture_hashes": task.fixture_hashes(PROJECT_ROOT),
-        }
-        return hashlib.sha256(json.dumps(seed, sort_keys=True).encode()).hexdigest()[:16]
+        if not task.comparison_scenario_ref.strip():
+            return ""
+        try:
+            scenario = load_comparison_scenario(PROJECT_ROOT, task.comparison_scenario_ref)
+            return scenario["scenario_content_hash"]
+        except Exception:
+            return ""
 
-    def _handoff_context_from_result(self, result: TaskResult, scenario_hash: str) -> dict[str, str]:
+    def _handoff_context_from_result(
+        self,
+        result: TaskResult,
+        scenario_hash: str,
+        fast_plan_row_id: str = "",
+    ) -> dict[str, str]:
         fast_response = (result.response.content or "").strip()
         fast_response_hash = hashlib.sha256(fast_response.encode()).hexdigest()[:16] if fast_response else ""
         return {
+            "fast_plan_row_id": fast_plan_row_id,
             "fast_identity_key": result.identity.key(),
+            "fast_model": result.identity.model_name,
+            "fast_model_digest": result.identity.model_digest,
             "fast_response": fast_response,
             "fast_response_hash": fast_response_hash,
             "comparison_scenario_hash": scenario_hash,
@@ -204,6 +213,14 @@ class AuditionRunner:
             key = (task.team, task.role, task.id, task.task_version)
             if key not in selected:
                 continue
+            scenario_version = ""
+            scenario_content_hash = ""
+            comparison_information_mode = ""
+            if task.comparison_id and task.comparison_scenario_ref:
+                scenario_info = load_comparison_scenario(PROJECT_ROOT, task.comparison_scenario_ref)
+                scenario_version = scenario_info["scenario_version"]
+                scenario_content_hash = scenario_info["scenario_content_hash"]
+                comparison_information_mode = scenario_info["comparison_information_mode"]
             schema_content: dict[str, Any] = {}
             schema_hash = ""
             if task.required_json_schema:
@@ -221,6 +238,10 @@ class AuditionRunner:
                 schema_hash=schema_hash,
                 schema_content=schema_content,
                 fixture_hashes=task.fixture_hashes(PROJECT_ROOT),
+                comparison_scenario_ref=task.comparison_scenario_ref,
+                scenario_version=scenario_version,
+                scenario_content_hash=scenario_content_hash,
+                comparison_information_mode=comparison_information_mode,
                 task=task.model_dump(mode="json"),
             )
             path = snapshot_dir / f"{task.team}__{task.role}__{task.id}__{task.task_version}.json"
@@ -272,7 +293,32 @@ class AuditionRunner:
         task_manifest = {
             "run_id": str(uuid.uuid4()),
             "profile": self.profile,
-            "requests": plan_rows,
+            "requests": [
+                {
+                    "plan_row_id": row.get("plan_row_id", ""),
+                    "team": row["team"],
+                    "role": row["role"],
+                    "task_id": row["task_id"],
+                    "task_version": row.get("task_version", "v1"),
+                    "model": row["model"],
+                    "full_model_digest": row.get("full_model_digest", ""),
+                    "requested_think_mode": row.get("requested_think_mode", "false"),
+                    "structured_output_mode": row.get("structured_output_mode", "prompt_only"),
+                    "temperature": row.get("temperature", 0.0),
+                    "num_ctx": row.get("num_ctx", 8192),
+                    "num_predict": row.get("num_predict", 4096),
+                    "schema_hash": row.get("schema_hash", ""),
+                    "fixture_hashes": row.get("fixture_hashes", {}),
+                    "comparison_id": row.get("comparison_id", ""),
+                    "comparison_track": row.get("comparison_track", ""),
+                    "comparison_scenario_ref": row.get("comparison_scenario_ref", ""),
+                    "scenario_version": row.get("scenario_version", ""),
+                    "scenario_content_hash": row.get("scenario_content_hash", ""),
+                    "comparison_information_mode": row.get("comparison_information_mode", ""),
+                    "fast_plan_row_id": row.get("fast_plan_row_id", ""),
+                }
+                for row in plan_rows
+            ],
         }
         task_manifest_hash = _json_sha256(task_manifest)
         execution_plan_hash = _json_sha256(plan_rows)
@@ -448,6 +494,13 @@ class AuditionRunner:
             current_fixture_hashes = current_task.fixture_hashes(PROJECT_ROOT)
             if current_fixture_hashes != snapshot.fixture_hashes:
                 snapshot_mismatches.append(f"fixtures changed for {task_ref}")
+            if snapshot.comparison_scenario_ref:
+                try:
+                    current_scenario = load_comparison_scenario(PROJECT_ROOT, snapshot.comparison_scenario_ref)
+                    if current_scenario["scenario_content_hash"] != snapshot.scenario_content_hash:
+                        snapshot_mismatches.append(f"scenario changed for {task_ref}")
+                except Exception:
+                    snapshot_mismatches.append(f"scenario missing or invalid for {task_ref}")
         if snapshot_mismatches:
             raise RuntimeError("Resume refused: " + "; ".join(snapshot_mismatches))
 
@@ -467,14 +520,8 @@ class AuditionRunner:
         events_fh = events_path.open("a", encoding="utf-8")
 
         planned_rows = [PlannedRequest.model_validate(row) for row in plan_rows]
-        handoff_fast_index: dict[tuple[str, str, str, str, str], int] = {}
-        handoff_contexts: dict[tuple[str, str, str, str, str], dict[str, str]] = {}
-        for idx, row in enumerate(planned_rows):
-            task = tasks_by_key[(row.team, row.role, row.task_id, row.task_version)]
-            if task.comparison_track != "handoff" or not task.comparison_id:
-                continue
-            if task.worker_class == "fast":
-                handoff_fast_index[self._comparison_pair_key(task, row)] = idx
+        row_index_by_id = {row.plan_row_id: idx for idx, row in enumerate(planned_rows) if row.plan_row_id}
+        handoff_context_by_fast_row_id: dict[str, dict[str, str]] = {}
 
         executed_indices: set[int] = set()
         try:
@@ -482,31 +529,109 @@ class AuditionRunner:
                 if idx in executed_indices:
                     continue
                 task = tasks_by_key[(row.team, row.role, row.task_id, row.task_version)]
-                pair_key = self._comparison_pair_key(task, row)
 
+                handoff_context: dict[str, str] | None = None
                 if task.comparison_track == "handoff" and task.worker_class == "heavy":
-                    fast_idx = handoff_fast_index.get(pair_key)
-                    if fast_idx is not None and fast_idx not in executed_indices:
-                        fast_row = planned_rows[fast_idx]
-                        fast_task = tasks_by_key[(fast_row.team, fast_row.role, fast_row.task_id, fast_row.task_version)]
-                        self._run_order += 1
-                        fast_results = list(
-                            self._run_single_planned_request(
-                                task=fast_task,
-                                row=fast_row,
-                                schemas_dir=schemas_dir,
-                                team_weights=(team_weights or {}).get(f"{fast_task.team}.{fast_task.role}"),
-                                events_fh=events_fh,
-                                handoff_context=None,
-                                comparison_scenario_hash=self._comparison_scenario_hash(fast_task),
-                            )
+                    if not row.fast_plan_row_id:
+                        self._write_event(
+                            events_fh,
+                            {
+                                "identity_key": "",
+                                "status": "invalid_dependency",
+                                "team": row.team,
+                                "role": row.role,
+                                "task_id": row.task_id,
+                                "model": row.model,
+                                "requested_think_mode": row.requested_think_mode,
+                                "structured_output_mode": row.structured_output_mode,
+                                "run_order": self._run_order,
+                                "reason": "missing_fast_plan_row_id",
+                            },
                         )
-                        executed_indices.add(fast_idx)
-                        for produced in fast_results:
-                            handoff_contexts[pair_key] = self._handoff_context_from_result(
-                                produced, self._comparison_scenario_hash(fast_task)
+                        executed_indices.add(idx)
+                        continue
+
+                    if row.fast_plan_row_id not in handoff_context_by_fast_row_id:
+                        fast_idx = row_index_by_id.get(row.fast_plan_row_id)
+                        if fast_idx is None:
+                            self._write_event(
+                                events_fh,
+                                {
+                                    "identity_key": "",
+                                    "status": "invalid_dependency",
+                                    "team": row.team,
+                                    "role": row.role,
+                                    "task_id": row.task_id,
+                                    "model": row.model,
+                                    "requested_think_mode": row.requested_think_mode,
+                                    "structured_output_mode": row.structured_output_mode,
+                                    "run_order": self._run_order,
+                                    "reason": "fast_plan_row_not_found",
+                                },
                             )
-                            yield produced
+                            executed_indices.add(idx)
+                            continue
+
+                        if fast_idx not in executed_indices:
+                            fast_row = planned_rows[fast_idx]
+                            fast_task = tasks_by_key[(fast_row.team, fast_row.role, fast_row.task_id, fast_row.task_version)]
+                            self._run_order += 1
+                            fast_results = list(
+                                self._run_single_planned_request(
+                                    task=fast_task,
+                                    row=fast_row,
+                                    schemas_dir=schemas_dir,
+                                    team_weights=(team_weights or {}).get(f"{fast_task.team}.{fast_task.role}"),
+                                    events_fh=events_fh,
+                                    handoff_context=None,
+                                    comparison_scenario_hash=fast_row.scenario_content_hash or self._comparison_scenario_hash(fast_task),
+                                )
+                            )
+                            executed_indices.add(fast_idx)
+                            for produced in fast_results:
+                                ctx = self._handoff_context_from_result(
+                                    produced,
+                                    fast_row.scenario_content_hash or self._comparison_scenario_hash(fast_task),
+                                    fast_plan_row_id=fast_row.plan_row_id,
+                                )
+                                handoff_context_by_fast_row_id[fast_row.plan_row_id] = ctx
+                                yield produced
+
+                        if row.fast_plan_row_id not in handoff_context_by_fast_row_id:
+                            fast_row = planned_rows[fast_idx]
+                            fast_task = tasks_by_key[(fast_row.team, fast_row.role, fast_row.task_id, fast_row.task_version)]
+                            loaded_ctx = self._load_handoff_context_from_saved_fast_result(
+                                fast_task=fast_task,
+                                fast_row=fast_row,
+                                schemas_dir=schemas_dir,
+                            )
+                            if loaded_ctx:
+                                handoff_context_by_fast_row_id[fast_row.plan_row_id] = loaded_ctx
+
+                    handoff_context = handoff_context_by_fast_row_id.get(row.fast_plan_row_id)
+                    if not handoff_context:
+                        self._write_event(
+                            events_fh,
+                            {
+                                "identity_key": "",
+                                "status": "invalid_dependency",
+                                "team": row.team,
+                                "role": row.role,
+                                "task_id": row.task_id,
+                                "model": row.model,
+                                "requested_think_mode": row.requested_think_mode,
+                                "structured_output_mode": row.structured_output_mode,
+                                "run_order": self._run_order,
+                                "reason": "fast_artifact_missing_or_inconsistent",
+                            },
+                        )
+                        executed_indices.add(idx)
+                        continue
+
+                    handoff_context = dict(handoff_context)
+                    handoff_context["fast_plan_row_id"] = row.fast_plan_row_id
+                    handoff_context["heavy_model"] = row.model
+                    handoff_context["heavy_model_digest"] = row.full_model_digest
 
                 self._run_order += 1
                 produced_rows = list(
@@ -516,20 +641,90 @@ class AuditionRunner:
                         schemas_dir=schemas_dir,
                         team_weights=(team_weights or {}).get(f"{task.team}.{task.role}"),
                         events_fh=events_fh,
-                        handoff_context=handoff_contexts.get(pair_key),
-                        comparison_scenario_hash=self._comparison_scenario_hash(task),
+                        handoff_context=handoff_context,
+                        comparison_scenario_hash=row.scenario_content_hash or self._comparison_scenario_hash(task),
                     )
                 )
                 executed_indices.add(idx)
                 if task.comparison_track == "handoff" and task.worker_class == "fast":
                     for produced in produced_rows:
-                        handoff_contexts[pair_key] = self._handoff_context_from_result(
-                            produced, self._comparison_scenario_hash(task)
-                        )
+                        if row.plan_row_id:
+                            handoff_context_by_fast_row_id[row.plan_row_id] = self._handoff_context_from_result(
+                                produced,
+                                row.scenario_content_hash or self._comparison_scenario_hash(task),
+                                fast_plan_row_id=row.plan_row_id,
+                            )
                 for produced in produced_rows:
                     yield produced
         finally:
             events_fh.close()
+
+    def _load_handoff_context_from_saved_fast_result(
+        self,
+        fast_task: TaskDefinition,
+        fast_row: PlannedRequest,
+        schemas_dir: Path,
+    ) -> dict[str, str] | None:
+        expected_scenario_hash = fast_row.scenario_content_hash or self._comparison_scenario_hash(fast_task)
+        schema = self._load_schema_for_task(fast_task, schemas_dir)
+        pre_identity = self._make_identity(
+            task=fast_task,
+            model_name=fast_row.model,
+            requested_think_mode=fast_row.requested_think_mode,
+            effective_think_mode=fast_row.requested_think_mode,
+            schema=schema,
+            model_response=None,
+            handoff_context=None,
+            comparison_scenario_hash=expected_scenario_hash,
+        )
+        pre_key = pre_identity.pre_request_key()
+        fallback_candidates: list[TaskResult] = []
+        for result_path in sorted(self.run_dir.rglob("*.result.json")):
+            try:
+                result = TaskResult.model_validate_json(result_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if result.status not in ("completed", "unsupported_mode"):
+                continue
+            if result.identity.pre_request_key() != pre_key:
+                if not (
+                    result.identity.team == fast_task.team
+                    and result.identity.role == fast_task.role
+                    and result.identity.task_id == fast_task.id
+                    and result.identity.model_name == fast_row.model
+                    and result.identity.requested_think_mode == fast_row.requested_think_mode
+                    and (
+                        result.identity.scenario_content_hash == expected_scenario_hash
+                        or result.identity.comparison_scenario_hash == expected_scenario_hash
+                    )
+                ):
+                    continue
+                fallback_candidates.append(result)
+                continue
+            if fast_row.full_model_digest and result.identity.model_digest not in (fast_row.full_model_digest, "unknown"):
+                return None
+            ctx = self._handoff_context_from_result(
+                result,
+                expected_scenario_hash,
+                fast_plan_row_id=fast_row.plan_row_id,
+            )
+            if not ctx.get("fast_response"):
+                return None
+            return ctx
+
+        if fallback_candidates:
+            result = fallback_candidates[-1]
+            if fast_row.full_model_digest and result.identity.model_digest not in (fast_row.full_model_digest, "unknown"):
+                return None
+            ctx = self._handoff_context_from_result(
+                result,
+                expected_scenario_hash,
+                fast_plan_row_id=fast_row.plan_row_id,
+            )
+            if not ctx.get("fast_response"):
+                return None
+            return ctx
+        return None
 
     def _run_single_planned_request(
         self,
@@ -542,7 +737,7 @@ class AuditionRunner:
         comparison_scenario_hash: str = "",
     ) -> Iterator[TaskResult]:
         schema = self._load_schema_for_task(task, schemas_dir)
-        messages = self._build_messages(task, handoff_context=handoff_context)
+        messages, prompt_components = self._build_messages(task, handoff_context=handoff_context)
         pre_identity = self._make_identity(
             task=task,
             model_name=row.model,
@@ -566,6 +761,10 @@ class AuditionRunner:
                     "model": row.model,
                     "requested_think_mode": row.requested_think_mode,
                     "structured_output_mode": row.structured_output_mode,
+                    "comparison_id": row.comparison_id,
+                    "comparison_track": row.comparison_track,
+                    "scenario_content_hash": row.scenario_content_hash,
+                    "scenario_version": row.scenario_version,
                     "run_order": self._run_order,
                     "reason": "completed_identity",
                 },
@@ -586,11 +785,15 @@ class AuditionRunner:
             "messages": messages,
             "structured_output_mode": row.structured_output_mode,
             "schema_name": task.required_json_schema,
+            "prompt_components": prompt_components,
         }
         if handoff_context:
             response.effective_prompt["fast_worker_response"] = handoff_context.get("fast_response", "")
             response.effective_prompt["handoff_context"] = handoff_context
             response.request_payload["handoff_context"] = handoff_context
+        if prompt_components.get("handoff_payload"):
+            response.request_payload["handoff_payload"] = prompt_components["handoff_payload"]
+            response.effective_prompt["handoff_payload"] = prompt_components["handoff_payload"]
         identity = self._make_identity(
             task=task,
             model_name=row.model,
@@ -628,6 +831,12 @@ class AuditionRunner:
                 "effective_think_mode": response.effective_think_mode,
                 "think_mode_accepted": response.think_mode_accepted,
                 "structured_output_mode": row.structured_output_mode,
+                "comparison_id": row.comparison_id,
+                "comparison_track": row.comparison_track,
+                "scenario_content_hash": row.scenario_content_hash,
+                "scenario_version": row.scenario_version,
+                "comparison_information_mode": row.comparison_information_mode,
+                "fast_plan_row_id": row.fast_plan_row_id,
                 "run_order": self._run_order,
                 "weighted_total": result.scores.weighted_total,
                 "score_status": result.score_status,
@@ -712,7 +921,7 @@ class AuditionRunner:
 
         for model_name in candidates:
             schema = self._load_schema_for_task(task, schemas_dir)
-            messages = self._build_messages(task)
+            messages, prompt_components = self._build_messages(task)
 
             pre_identity = self._make_identity(
                 task=task,
@@ -756,6 +965,7 @@ class AuditionRunner:
                 "messages": messages,
                 "structured_output_mode": task.structured_output_mode,
                 "schema_name": task.required_json_schema,
+                "prompt_components": prompt_components,
             }
 
             identity = self._make_identity(
@@ -876,15 +1086,35 @@ class AuditionRunner:
             handoff_fast_identity_key=(handoff_context or {}).get("fast_identity_key", ""),
             handoff_fast_response_hash=(handoff_context or {}).get("fast_response_hash", ""),
             comparison_scenario_hash=comparison_scenario_hash,
+            scenario_content_hash=comparison_scenario_hash,
         )
 
-    def _build_messages(self, task: TaskDefinition, handoff_context: dict[str, str] | None = None) -> list[dict[str, Any]]:
+    def _build_messages(
+        self,
+        task: TaskDefinition,
+        handoff_context: dict[str, str] | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         messages: list[dict[str, Any]] = []
 
         if task.system_prompt:
             messages.append({"role": "system", "content": task.system_prompt})
 
-        user_prompt = task.prompt.strip()
+        shared_scenario_content = ""
+        scenario_content_hash = ""
+        scenario_version = ""
+        comparison_information_mode = ""
+        if task.comparison_id and task.comparison_scenario_ref:
+            scenario = load_comparison_scenario(PROJECT_ROOT, task.comparison_scenario_ref)
+            shared_scenario_content = render_shared_scenario(scenario["payload"])
+            scenario_content_hash = scenario["scenario_content_hash"]
+            scenario_version = scenario["scenario_version"]
+            comparison_information_mode = scenario["comparison_information_mode"]
+
+        role_instruction = task.prompt.strip()
+        output_contract = ""
+        if task.structured_output_mode == "prompt_only" and task.required_json_schema:
+            output_contract = "Return ONLY valid JSON (no markdown fences, no prose)."
+
         injected_chunks: list[str] = []
         for fp in task.fixture_paths:
             p = PROJECT_ROOT / fp
@@ -892,22 +1122,50 @@ class AuditionRunner:
                 continue
             injected_chunks.append(f"[Fixture: {fp}]\n{p.read_text(encoding='utf-8')}")
 
+        user_sections: list[str] = []
+        if shared_scenario_content:
+            user_sections.append("Shared scenario:\n" + shared_scenario_content)
+        user_sections.append("Role instruction:\n" + role_instruction)
         if injected_chunks:
-            user_prompt = f"{user_prompt}\n\nReference fixtures:\n\n" + "\n\n".join(injected_chunks)
+            user_sections.append("Reference fixtures:\n\n" + "\n\n".join(injected_chunks))
 
+        handoff_payload: dict[str, Any] | None = None
         if handoff_context and task.comparison_track == "handoff" and task.worker_class == "heavy":
-            handoff_json = json.dumps(handoff_context, sort_keys=True)
-            user_prompt = (
-                f"{user_prompt}\n\n"
+            handoff_payload = {
+                "comparison_id": task.comparison_id,
+                "comparison_track": task.comparison_track,
+                "scenario_content_hash": scenario_content_hash,
+                "fast_plan_row_id": handoff_context.get("fast_plan_row_id", ""),
+                "fast_result_identity": handoff_context.get("fast_identity_key", ""),
+                "fast_model": handoff_context.get("fast_model", ""),
+                "fast_model_digest": handoff_context.get("fast_model_digest", ""),
+                "fast_response_hash": handoff_context.get("fast_response_hash", ""),
+                "fast_response": handoff_context.get("fast_response", ""),
+                "heavy_model": handoff_context.get("heavy_model", ""),
+                "heavy_model_digest": handoff_context.get("heavy_model_digest", ""),
+                "heavy_instruction": role_instruction,
+            }
+            user_sections.append(
                 "Escalation handoff from fast worker (use this as upstream context):\n"
-                f"{handoff_json}\n"
+                + json.dumps(handoff_payload, sort_keys=True)
             )
 
-        if task.structured_output_mode == "prompt_only" and task.required_json_schema:
-            user_prompt = user_prompt + "\n\nReturn ONLY valid JSON (no markdown fences, no prose)."
+        if output_contract:
+            user_sections.append("Output contract:\n" + output_contract)
 
+        user_prompt = "\n\n".join(section.strip() for section in user_sections if section.strip())
         messages.append({"role": "user", "content": user_prompt})
-        return messages
+
+        prompt_components = {
+            "shared_scenario_content": shared_scenario_content,
+            "role_instruction": role_instruction,
+            "output_contract": output_contract,
+            "scenario_content_hash": scenario_content_hash,
+            "scenario_version": scenario_version,
+            "comparison_information_mode": comparison_information_mode,
+            "handoff_payload": handoff_payload,
+        }
+        return messages, prompt_components
 
     def _load_schema_for_task(self, task: TaskDefinition, schemas_dir: Path) -> dict[str, Any] | None:
         schema_name = task.required_json_schema
@@ -963,6 +1221,10 @@ class AuditionRunner:
             f"{result.task.id}__{safe_model}__"
             f"think_{result.identity.requested_think_mode}-effective_{result.identity.effective_think_mode}"
         )
+        if result.task.comparison_track == "handoff" and result.task.worker_class == "heavy":
+            dep = (result.identity.handoff_fast_identity_key or result.identity.handoff_fast_response_hash or "")[:12]
+            if dep:
+                base = f"{base}__dep_{dep}"
 
         _atomic_write(team_dir / f"{base}.request_payload.json", json.dumps(result.response.request_payload, indent=2))
         _atomic_write(team_dir / f"{base}.effective_prompt.json", json.dumps(result.response.effective_prompt, indent=2))

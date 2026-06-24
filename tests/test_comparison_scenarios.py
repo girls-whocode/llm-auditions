@@ -27,5 +27,7 @@ def test_comparison_tasks_use_shared_scenario_refs():
         assert scenario_path.exists(), f"missing shared scenario fixture for {pair_key}: {ref}"
         payload = json.loads(scenario_path.read_text(encoding="utf-8"))
         assert payload.get("comparison_id") == pair_key[0]
-        assert payload.get("track") == pair_key[1]
-        assert payload.get("prompt")
+        assert payload.get("scenario_version")
+        assert payload.get("scenario")
+        assert payload.get("constraints")
+        assert payload.get("required_facts")

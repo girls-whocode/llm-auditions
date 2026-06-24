@@ -135,9 +135,14 @@ def validate_tasks(tasks: list[TaskDefinition]) -> list[str]:
     """Return validation errors for task integrity."""
     errors: list[str] = []
     dup = detect_duplicate_tasks(tasks)
+    task_index = {f"{t.id}@{t.team}.{t.role}": t for t in tasks}
     for item in dup["duplicate_ids"]:
         errors.append(f"Duplicate task id '{item['id']}' in {item['occurrences']}")
     for item in dup["duplicate_prompts"]:
+        refs = item.get("task_refs", [])
+        ref_tasks = [task_index.get(ref) for ref in refs if task_index.get(ref)]
+        if ref_tasks and all(t.comparison_id for t in ref_tasks):
+            continue
         errors.append(f"Duplicate prompt collision {item['prompt_hash']} in {item['task_refs']}")
 
     for t in tasks:

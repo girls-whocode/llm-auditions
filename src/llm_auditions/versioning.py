@@ -23,14 +23,28 @@ def _hash_files(paths: list[Path]) -> str:
     return digest.hexdigest()[:16]
 
 
+def _hash_files_relative(paths: list[Path], base: Path) -> str:
+    digest = hashlib.sha256()
+    for p in sorted(paths):
+        digest.update(p.relative_to(base).as_posix().encode())
+        digest.update(_hash_file(p).encode())
+    return digest.hexdigest()[:16]
+
+
 def execution_source_hashes(project_root: Path) -> dict[str, str]:
     src = project_root / "src" / "llm_auditions"
-    verifier_paths = list((src / "verifiers").glob("*.py"))
+    py_paths = [p for p in src.rglob("*.py") if p.is_file()]
+    verifier_paths = [p for p in (src / "verifiers").glob("*.py") if p.is_file()]
+    config_paths = [p for p in (project_root / "config").rglob("*.yaml") if p.is_file()]
+    schema_paths = [p for p in (project_root / "schemas").rglob("*.json") if p.is_file()]
     payload = {
         "engine": _hash_files([src / "runner.py", src / "ollama_client.py", src / "models.py"]),
         "scoring": _hash_files([src / "scoring.py", src / "models.py"]),
         "verifier": _hash_files(verifier_paths + [src / "models.py"]),
         "report": _hash_files([src / "reporting.py", src / "models.py"]),
+        "execution": _hash_files_relative(py_paths, src),
+        "config": _hash_files_relative(config_paths, project_root),
+        "schemas": _hash_files_relative(schema_paths, project_root),
     }
     return payload
 

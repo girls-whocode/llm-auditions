@@ -1,6 +1,17 @@
 {
   "comparison_id": "linux_firewall_change_002",
-  "track": "handoff",
-  "prompt": "Escalate firewall change safety checks with rollback awareness.",
-  "description": "Handoff comparison for Linux firewall change review."
+  "scenario_version": "1",
+  "title": "Remote firewall hardening with rollback dependency",
+  "scenario": "A production host reachable only over SSH requires blocking inbound traffic on TCP port 8080 after suspicious scans. The administrator is considering immediate iptables changes on a live system without prior rollback steps. Remote lockout would cause a prolonged outage.",
+  "constraints": [
+    "Require rollback planning before enforcement changes.",
+    "Separate validation commands from state-changing commands.",
+    "Avoid recommendations that can lock out remote access."
+  ],
+  "required_facts": [
+    "Current rules should be backed up before modifications.",
+    "Rollback and verification steps must be explicit.",
+    "Safety controls are mandatory for remote firewall operations."
+  ],
+  "comparison_information_mode": "symmetric"
 }

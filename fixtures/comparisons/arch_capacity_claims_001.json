@@ -1,6 +1,17 @@
 {
   "comparison_id": "arch_capacity_claims_001",
-  "track": "independent",
-  "prompt": "Evaluate architecture response quality and avoid unsupported capacity guarantees.",
-  "description": "Independent fast/heavy comparison for architecture capacity claims."
+  "scenario_version": "1",
+  "title": "Single-node capacity guarantee request",
+  "scenario": "An architecture review meeting asks whether a single service node with 32 CPU cores and 128 GB RAM can guarantee support for 10,000 concurrent users for a newly launched SaaS product. Current workload telemetry is incomplete, and no production-like load test has been performed.",
+  "constraints": [
+    "Do not provide guaranteed capacity claims without measurement.",
+    "Separate assumptions from validated evidence.",
+    "Include concrete next measurements needed for a decision."
+  ],
+  "required_facts": [
+    "Capacity depends on workload profile, latency targets, and downstream dependencies.",
+    "A benchmark or load test is required before guarantees.",
+    "Any recommendation must note uncertainty and risk."
+  ],
+  "comparison_information_mode": "symmetric"
 }

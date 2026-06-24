@@ -1,6 +1,17 @@
 {
   "comparison_id": "gk_philosophy_escalation_001",
-  "track": "handoff",
-  "prompt": "Escalate complex general-knowledge analysis requiring deeper reasoning.",
-  "description": "Handoff comparison for general knowledge escalation quality."
+  "scenario_version": "1",
+  "title": "Normative-framework synthesis under uncertainty",
+  "scenario": "A policy team requests a comparative analysis of Kantian deontology and Millian utilitarianism, including treatment of moral uncertainty and practical decision procedures for cases where the frameworks conflict. They require both conceptual rigor and decision guidance suitable for governance playbooks.",
+  "constraints": [
+    "Differentiate framework assumptions before drawing conclusions.",
+    "Avoid superficial summary when explicit synthesis is requested.",
+    "State unresolved ambiguities and what additional context would narrow them."
+  ],
+  "required_facts": [
+    "Both frameworks should be analyzed with explicit conflict conditions.",
+    "Decision procedures must mention uncertainty handling.",
+    "Output quality depends on structured synthesis, not isolated definitions."
+  ],
+  "comparison_information_mode": "symmetric"
 }
