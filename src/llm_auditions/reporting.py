@@ -13,6 +13,11 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+try:
+    from .models import ResultIdentity
+except Exception:  # pragma: no cover
+    ResultIdentity = None  # type: ignore[assignment]
+
 
 def _float(v: Any, default: float = 0.0) -> float:
     try:
@@ -530,6 +535,11 @@ def _write_escalation_csv(path: Path, results: list[dict[str, Any]]) -> None:
 
     def _result_identity_key(result: dict[str, Any]) -> str:
         identity = result.get("identity", {})
+        if ResultIdentity is not None:
+            try:
+                return ResultIdentity.model_validate(identity).key()
+            except Exception:
+                pass
         parts = [
             identity.get("team", ""),
             identity.get("role", ""),

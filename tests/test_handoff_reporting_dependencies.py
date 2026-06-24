@@ -5,38 +5,14 @@ import hashlib
 import json
 from pathlib import Path
 
+from llm_auditions.models import ResultIdentity
 from llm_auditions.reporting import generate_reports
 
 
 def _identity_key(identity: dict, fixture_hashes: dict | None = None) -> str:
-    fixture_hashes = fixture_hashes or {}
-    parts = [
-        identity.get("team", ""),
-        identity.get("role", ""),
-        identity.get("task_id", ""),
-        identity.get("task_version", "v1"),
-        identity.get("model_name", ""),
-        identity.get("model_digest", ""),
-        identity.get("requested_think_mode", ""),
-        identity.get("structured_output_mode", ""),
-        str(identity.get("temperature", "")),
-        str(identity.get("num_ctx", "")),
-        str(identity.get("num_predict", "")),
-        identity.get("system_prompt_hash", ""),
-        identity.get("user_prompt_hash", ""),
-        identity.get("task_suite_version", ""),
-        identity.get("verifier_version", ""),
-        identity.get("scoring_version", ""),
-        identity.get("engine_version", ""),
-        identity.get("handoff_fast_identity_key", ""),
-        identity.get("handoff_fast_response_hash", ""),
-        identity.get("comparison_scenario_hash", ""),
-        identity.get("scenario_content_hash", ""),
-        identity.get("effective_think_mode", ""),
-    ]
-    for key in sorted(fixture_hashes):
-        parts.append(f"{key}:{fixture_hashes[key]}")
-    return hashlib.sha256("|".join(parts).encode()).hexdigest()[:24]
+    payload = dict(identity)
+    payload["fixture_hashes"] = fixture_hashes or {}
+    return ResultIdentity.model_validate(payload).key()
 
 
 def test_handoff_report_uses_recorded_dependency_only(tmp_path: Path):
