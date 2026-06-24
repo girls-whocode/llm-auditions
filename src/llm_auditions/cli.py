@@ -922,6 +922,24 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
         scores = result.get("scores", {})
         verifier_output = result.get("verifier_output", {})
         prompt_components = (response.get("effective_prompt", {}) or {}).get("prompt_components", {})
+        rubric_rules = [item for item in (verifier_output.get("rubric_rules") or []) if isinstance(item, dict)]
+
+        check_entries = [item for item in (verifier_output.get("checks") or []) if isinstance(item, dict)]
+        development_extras = [
+            (check.get("extra") or {})
+            for check in check_entries
+            if check.get("verifier") == "development" and isinstance(check.get("extra"), dict)
+        ]
+        development_sandbox_policy_refusal = any(
+            bool(extra.get("policy_refusal"))
+            and (bool(extra.get("sandbox_unavailable")) or str(extra.get("reason", "")) == "sandbox_unavailable")
+            for extra in development_extras
+        )
+        verifier_error_present = any(
+            bool(check.get("error"))
+            or bool((check.get("extra") or {}).get("error"))
+            for check in check_entries
+        )
 
         if "requested_think_mode" not in identity and "think_mode" in identity:
             findings.append({"severity": "error", "type": "missing_correctness_dimension", "detail": f"legacy identity think_mode in {path.name}"})
@@ -958,10 +976,9 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
                 }
                 output_rule_ids = {
                     str(rule.get("rule_id", ""))
-                    for rule in (verifier_output.get("rubric_rules") or [])
-                    if isinstance(rule, dict)
+                    for rule in rubric_rules
                 }
-                if shared_rule_ids and not shared_rule_ids.issubset(output_rule_ids):
+                if shared_rule_ids and not shared_rule_ids.issubset(output_rule_ids) and not development_sandbox_policy_refusal:
                     findings.append({"severity": "error", "type": "comparison_shared_rubric_missing", "detail": path.name})
 
                 manifest_fixtures = manifest.get("fixture_hashes") or {}
@@ -980,14 +997,27 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
 
         if task.get("verification_classification", "rubric_assisted") == "rubric_assisted":
             rubric_finalization = task.get("rubric_finalization", "")
-            statuses = {item.get("status") for item in (verifier_output.get("rubric_rules") or [])}
+            statuses = {item.get("status") for item in rubric_rules}
             deterministic_complete = bool(statuses) and statuses.isdisjoint({"uncertain"})
-            if rubric_finalization == "deterministic" and deterministic_complete and result.get("score_status") == "provisional":
+            unresolved_required_rule = any(
+                str(item.get("status", "")) == "uncertain" and str(item.get("type", "")).lower() == "required"
+                for item in rubric_rules
+            )
+            if (
+                rubric_finalization == "deterministic"
+                and deterministic_complete
+                and result.get("score_status") == "provisional"
+                and not result.get("schema_errors")
+                and not result.get("hard_fail")
+                and not unresolved_required_rule
+                and not development_sandbox_policy_refusal
+                and not verifier_error_present
+            ):
                 findings.append({"severity": "error", "type": "rubric_stuck_provisional", "detail": path.name})
             if rubric_finalization == "mixed" and result.get("score_status") == "final":
                 findings.append({"severity": "error", "type": "mixed_result_incorrectly_final", "detail": path.name})
 
-        if task.get("comparison_track") == "handoff":
+        if task.get("comparison_track") == "handoff" and str(task.get("worker_class", "")).lower() == "heavy":
             handoff_payload = response.get("request_payload", {}).get("handoff_payload")
             if not handoff_payload:
                 findings.append({"severity": "error", "type": "handoff_payload_missing", "detail": path.name})
@@ -999,6 +1029,10 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
                 findings.append({"severity": "error", "type": "handoff_fast_hash_mismatch", "detail": path.name})
             fast_result = result_by_identity.get(dependency_identity)
             if fast_result:
+                fast_response = (fast_result.get("response") or {}).get("content", "")
+                expected_hash = hashlib.sha256(str(fast_response).encode()).hexdigest()[:16]
+                if dependency_hash and dependency_hash != expected_hash:
+                    findings.append({"severity": "error", "type": "handoff_fast_hash_mismatch", "detail": path.name})
                 fast_identity = fast_result.get("identity", {})
                 fast_prompt_components = ((fast_result.get("response", {}) or {}).get("effective_prompt", {}) or {}).get("prompt_components", {})
                 if str(identity.get("requested_think_mode", "")) != str(fast_identity.get("requested_think_mode", "")):
@@ -1024,6 +1058,9 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
                 extra = check.get("extra", {})
                 if extra.get("sandbox_backend") and not extra.get("policy_refusal") and not extra.get("sandbox_unavailable"):
                     findings.append({"severity": "error", "type": "development_host_execution", "detail": path.name})
+
+        if str(task.get("team", "")) == "development" and development_sandbox_policy_refusal and result.get("score_status") == "final":
+            findings.append({"severity": "error", "type": "development_final_without_sandbox", "detail": path.name})
 
         metrics = response.get("metrics", {})
         load_seconds = float(metrics.get("load_seconds", 0.0) or 0.0)
