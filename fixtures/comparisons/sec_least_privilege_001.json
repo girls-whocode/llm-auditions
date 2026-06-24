@@ -1,6 +1,17 @@
 {
   "comparison_id": "sec_least_privilege_001",
-  "track": "independent",
-  "prompt": "Compare least-privilege and safe-default security recommendations.",
-  "description": "Independent comparison for security safe-default guidance."
+  "scenario_version": "1",
+  "title": "Database backup role least-privilege design",
+  "scenario": "A development team requests a database account for scheduled backups from a web application context. They ask for broad privileges to avoid operational friction. Security governance requires least-privilege, blast-radius limits, and explicit denial of destructive capabilities.",
+  "constraints": [
+    "Recommend minimal privileges aligned to backup scope.",
+    "Explicitly forbid high-risk privileges not required for backup.",
+    "Describe audit and rotation controls for the service account."
+  ],
+  "required_facts": [
+    "Backup workflows can usually run with read or backup-specific rights.",
+    "Administrative or destructive privileges increase blast radius.",
+    "Credential hygiene and auditing are part of the control set."
+  ],
+  "comparison_information_mode": "symmetric"
 }

@@ -523,61 +523,161 @@ def _write_deterministic_json(path: Path, results: list[dict[str, Any]]) -> None
 
 
 def _write_escalation_csv(path: Path, results: list[dict[str, Any]]) -> None:
-    grouped: dict[tuple[str, str, str, str, str], dict[str, list[dict[str, Any]]]] = defaultdict(lambda: {"fast": [], "heavy": []})
-
-    for r in results:
-        task = r.get("task", {})
-        identity = r.get("identity", {})
-        response = r.get("response", {})
-        metrics = response.get("metrics", {})
-        scores = r.get("scores", {})
-        comparison_id = task.get("comparison_id")
-        track = task.get("comparison_track", "")
-        worker_class = task.get("worker_class")
-        if not comparison_id or worker_class not in ("fast", "heavy"):
-            continue
-
-        key = (
-            comparison_id,
-            track,
-            str(identity.get("requested_think_mode", "")),
-            str(identity.get("structured_output_mode", "")),
-            str(identity.get("task_suite_version", "1")),
-        )
-        grouped[key][worker_class].append(
-            {
-                "model": identity.get("model_name", ""),
-                "digest": identity.get("model_digest", ""),
-                "task_version": identity.get("task_version", "v1"),
-                "correctness": scores.get("correctness_score"),
-                "completeness": scores.get("completeness_score"),
-                "safety": scores.get("safety_score"),
-                "weighted_total": scores.get("weighted_total"),
-                "score_status": r.get("score_status", scores.get("score_status", "provisional")),
-                "ranking_eligible": bool(r.get("ranking_eligible", True)),
-                "hard_fail": bool(r.get("hard_fail", False)),
-                "generation_seconds": float(metrics.get("generation_seconds", 0.0) or 0.0),
-                "wall_clock_seconds": float(metrics.get("wall_clock_seconds", 0.0) or 0.0),
-                "token_count": int(metrics.get("eval_count", 0) or 0),
-                "handoff_payload": response.get("handoff_payload") or task.get("handoff_payload") or response.get("effective_prompt", {}).get("fast_worker_response", ""),
-            }
-        )
-
-    rows = []
-
     def _delta(a: Any, b: Any) -> float | None:
         if a is None or b is None:
             return None
         return round(float(b) - float(a), 4)
 
-    for (comparison_id, track, requested_think_mode, structured_output_mode, task_suite_version), grouped_rows in sorted(grouped.items()):
-        fast_rows = grouped_rows.get("fast", [])
-        heavy_rows = grouped_rows.get("heavy", [])
-        if not fast_rows or not heavy_rows:
-            continue
+    def _result_identity_key(result: dict[str, Any]) -> str:
+        identity = result.get("identity", {})
+        parts = [
+            identity.get("team", ""),
+            identity.get("role", ""),
+            identity.get("task_id", ""),
+            identity.get("task_version", "v1"),
+            identity.get("model_name", ""),
+            identity.get("model_digest", ""),
+            identity.get("requested_think_mode", ""),
+            identity.get("structured_output_mode", ""),
+            str(identity.get("temperature", "")),
+            str(identity.get("num_ctx", "")),
+            str(identity.get("num_predict", "")),
+            identity.get("system_prompt_hash", ""),
+            identity.get("user_prompt_hash", ""),
+            identity.get("task_suite_version", ""),
+            identity.get("verifier_version", ""),
+            identity.get("scoring_version", ""),
+            identity.get("engine_version", ""),
+            identity.get("handoff_fast_identity_key", ""),
+            identity.get("handoff_fast_response_hash", ""),
+            identity.get("comparison_scenario_hash", ""),
+            identity.get("scenario_content_hash", ""),
+            identity.get("effective_think_mode", ""),
+        ]
+        fixture_hashes = identity.get("fixture_hashes", {}) or {}
+        for key in sorted(fixture_hashes):
+            parts.append(f"{key}:{fixture_hashes[key]}")
+        return __import__("hashlib").sha256("|".join(parts).encode()).hexdigest()[:24]
 
-        for fast in fast_rows:
-            for heavy in heavy_rows:
+    def _summary_row(result: dict[str, Any]) -> dict[str, Any]:
+        identity = result.get("identity", {})
+        task = result.get("task", {})
+        response = result.get("response", {})
+        prompt_components = (response.get("effective_prompt", {}) or {}).get("prompt_components", {})
+        metrics = response.get("metrics", {})
+        scores = result.get("scores", {})
+        response_text = str(response.get("content", "") or "")
+        fast_hash = __import__("hashlib").sha256(response_text.encode()).hexdigest()[:16] if response_text else ""
+        return {
+            "comparison_id": task.get("comparison_id", ""),
+            "track": task.get("comparison_track", ""),
+            "scenario_version": str(prompt_components.get("scenario_version", "")),
+            "scenario_content_hash": identity.get("scenario_content_hash") or identity.get("comparison_scenario_hash", ""),
+            "comparison_information_mode": prompt_components.get("comparison_information_mode", ""),
+            "worker_class": task.get("worker_class", ""),
+            "task_id": task.get("id", ""),
+            "model": identity.get("model_name", ""),
+            "digest": identity.get("model_digest", ""),
+            "identity": _result_identity_key(result),
+            "response_hash": fast_hash,
+            "weighted_total": scores.get("weighted_total"),
+            "correctness": scores.get("correctness_score"),
+            "completeness": scores.get("completeness_score"),
+            "safety": scores.get("safety_score"),
+            "score_status": result.get("score_status", scores.get("score_status", "provisional")),
+            "ranking_eligible": bool(result.get("ranking_eligible", True)),
+            "hard_fail": bool(result.get("hard_fail", False)),
+            "generation_seconds": float(metrics.get("generation_seconds", 0.0) or 0.0),
+            "wall_clock_seconds": float(metrics.get("wall_clock_seconds", 0.0) or 0.0),
+            "token_count": int(metrics.get("eval_count", 0) or 0),
+            "requested_think_mode": str(identity.get("requested_think_mode", "")),
+            "structured_output_mode": str(identity.get("structured_output_mode", "")),
+            "task_suite_version": str(identity.get("task_suite_version", "")),
+            "dependency_fast_identity": identity.get("handoff_fast_identity_key", ""),
+            "dependency_fast_hash": identity.get("handoff_fast_response_hash", ""),
+        }
+
+    summaries = [_summary_row(r) for r in results if r.get("task", {}).get("comparison_id")]
+    identity_index = {r["identity"]: r for r in summaries}
+
+    rows = []
+    for heavy in [r for r in summaries if r.get("track") and r.get("comparison_id") and r.get("dependency_fast_identity")]:
+        if heavy.get("track") != "handoff":
+            continue
+        fast = identity_index.get(heavy.get("dependency_fast_identity", ""))
+        status = "resolved"
+        if not fast:
+            status = "invalid_dependency"
+        elif heavy.get("dependency_fast_hash", "") != fast.get("response_hash", ""):
+            status = "invalid_dependency"
+        unresolved = (
+            status == "invalid_dependency"
+            or heavy.get("score_status") in ("human_required", "provisional", "disqualified")
+            or not heavy.get("ranking_eligible", True)
+            or (fast and (fast.get("score_status") in ("human_required", "provisional", "disqualified") or not fast.get("ranking_eligible", True)))
+        )
+        correctness_delta = _delta(fast.get("correctness") if fast else None, heavy.get("correctness"))
+        completeness_delta = _delta(fast.get("completeness") if fast else None, heavy.get("completeness"))
+        safety_delta = _delta(fast.get("safety") if fast else None, heavy.get("safety"))
+        generation_time_delta = _delta(fast.get("generation_seconds") if fast else None, heavy.get("generation_seconds"))
+        wall_time_delta = _delta(fast.get("wall_clock_seconds") if fast else None, heavy.get("wall_clock_seconds"))
+        token_delta = _delta(fast.get("token_count") if fast else None, heavy.get("token_count"))
+        material = bool((correctness_delta or 0) > 0.05 or (completeness_delta or 0) > 0.05 or (safety_delta or 0) > 0.05)
+        justified = bool(material and not unresolved and not heavy.get("hard_fail", False))
+
+        rows.append(
+            {
+                "comparison_id": heavy.get("comparison_id", ""),
+                "track": "handoff",
+                "scenario_version": heavy.get("scenario_version", ""),
+                "scenario_content_hash": heavy.get("scenario_content_hash", ""),
+                "comparison_information_mode": heavy.get("comparison_information_mode", ""),
+                "fast_task_id": fast.get("task_id", "") if fast else "",
+                "heavy_task_id": heavy.get("task_id", ""),
+                "fast_model": fast.get("model", "") if fast else "",
+                "fast_digest": fast.get("digest", "") if fast else "",
+                "heavy_model": heavy.get("model", ""),
+                "heavy_digest": heavy.get("digest", ""),
+                "fast_result_identity": heavy.get("dependency_fast_identity", ""),
+                "heavy_result_identity": heavy.get("identity", ""),
+                "fast_response_hash": fast.get("response_hash", "") if fast else "",
+                "heavy_dependency_fast_response_hash": heavy.get("dependency_fast_hash", ""),
+                "fast_score": fast.get("weighted_total") if fast else None,
+                "heavy_score": heavy.get("weighted_total"),
+                "correctness_delta": correctness_delta,
+                "completeness_delta": completeness_delta,
+                "safety_delta": safety_delta,
+                "hard_gate_change": f"fast={fast.get('hard_fail', False) if fast else ''} heavy={heavy.get('hard_fail', False)}",
+                "generation_time_delta": generation_time_delta,
+                "wall_time_delta": wall_time_delta,
+                "token_delta": token_delta,
+                "material_improvement": material,
+                "escalation_justified": justified,
+                "status": status if status == "invalid_dependency" else ("unresolved" if unresolved else "resolved"),
+            }
+        )
+
+    independent_groups: dict[tuple[str, str, str, str, str, str, str], dict[str, list[dict[str, Any]]]] = defaultdict(lambda: {"fast": [], "heavy": []})
+    for row in summaries:
+        if row.get("track") != "independent":
+            continue
+        key = (
+            row.get("comparison_id", ""),
+            row.get("scenario_content_hash", ""),
+            row.get("scenario_version", ""),
+            row.get("comparison_information_mode", ""),
+            row.get("requested_think_mode", ""),
+            row.get("structured_output_mode", ""),
+            row.get("task_suite_version", ""),
+        )
+        worker = row.get("worker_class", "")
+        if worker not in ("fast", "heavy"):
+            continue
+        independent_groups[key][worker].append(row)
+
+    for key, grouped in sorted(independent_groups.items()):
+        for fast in grouped.get("fast", []):
+            for heavy in grouped.get("heavy", []):
                 unresolved = any(
                     x.get("score_status") in ("human_required", "provisional", "disqualified") or not x.get("ranking_eligible", True)
                     for x in (fast, heavy)
@@ -590,34 +690,35 @@ def _write_escalation_csv(path: Path, results: list[dict[str, Any]]) -> None:
                 token_delta = _delta(fast.get("token_count"), heavy.get("token_count"))
                 material = bool((correctness_delta or 0) > 0.05 or (completeness_delta or 0) > 0.05 or (safety_delta or 0) > 0.05)
                 justified = bool(material and not unresolved and not heavy.get("hard_fail", False))
-                status = "unresolved" if unresolved else "resolved"
-
                 rows.append(
                     {
-                        "comparison_id": comparison_id,
-                        "track": track,
-                        "requested_think_mode": requested_think_mode,
-                        "structured_output_mode": structured_output_mode,
-                        "task_suite_version": task_suite_version,
-                        "fast_model": fast.get("model"),
-                        "fast_digest": fast.get("digest"),
-                        "heavy_model": heavy.get("model"),
-                        "heavy_digest": heavy.get("digest"),
+                        "comparison_id": key[0],
+                        "track": "independent",
+                        "scenario_version": key[2],
+                        "scenario_content_hash": key[1],
+                        "comparison_information_mode": key[3],
+                        "fast_task_id": fast.get("task_id", ""),
+                        "heavy_task_id": heavy.get("task_id", ""),
+                        "fast_model": fast.get("model", ""),
+                        "fast_digest": fast.get("digest", ""),
+                        "heavy_model": heavy.get("model", ""),
+                        "heavy_digest": heavy.get("digest", ""),
+                        "fast_result_identity": fast.get("identity", ""),
+                        "heavy_result_identity": heavy.get("identity", ""),
+                        "fast_response_hash": fast.get("response_hash", ""),
+                        "heavy_dependency_fast_response_hash": "",
                         "fast_score": fast.get("weighted_total"),
                         "heavy_score": heavy.get("weighted_total"),
-                        "fast_task_version": fast.get("task_version"),
-                        "heavy_task_version": heavy.get("task_version"),
                         "correctness_delta": correctness_delta,
                         "completeness_delta": completeness_delta,
                         "safety_delta": safety_delta,
-                        "hard_gate_changes": f"fast={fast.get('hard_fail')} heavy={heavy.get('hard_fail')}",
+                        "hard_gate_change": f"fast={fast.get('hard_fail', False)} heavy={heavy.get('hard_fail', False)}",
                         "generation_time_delta": generation_time_delta,
                         "wall_time_delta": wall_time_delta,
                         "token_delta": token_delta,
                         "material_improvement": material,
                         "escalation_justified": justified,
-                        "status": status,
-                        "handoff_payload": heavy.get("handoff_payload", "") if track == "handoff" else "",
+                        "status": "unresolved" if unresolved else "resolved",
                     }
                 )
 
@@ -627,28 +728,31 @@ def _write_escalation_csv(path: Path, results: list[dict[str, Any]]) -> None:
             fieldnames=[
                 "comparison_id",
                 "track",
-                "requested_think_mode",
-                "structured_output_mode",
-                "task_suite_version",
+                "scenario_version",
+                "scenario_content_hash",
+                "comparison_information_mode",
+                "fast_task_id",
+                "heavy_task_id",
                 "fast_model",
                 "fast_digest",
                 "heavy_model",
                 "heavy_digest",
+                "fast_result_identity",
+                "heavy_result_identity",
+                "fast_response_hash",
+                "heavy_dependency_fast_response_hash",
                 "fast_score",
                 "heavy_score",
-                "fast_task_version",
-                "heavy_task_version",
                 "correctness_delta",
                 "completeness_delta",
                 "safety_delta",
+                "hard_gate_change",
                 "generation_time_delta",
                 "wall_time_delta",
                 "token_delta",
-                "hard_gate_changes",
                 "material_improvement",
                 "escalation_justified",
                 "status",
-                "handoff_payload",
             ],
         )
         writer.writeheader()

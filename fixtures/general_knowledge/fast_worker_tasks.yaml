@@ -1,310 +1,322 @@
-  - id: gk_fast_capital_question
-    team: general_knowledge
-    role: fast_worker
-    category: factual
-    smoke: true
-    system_prompt: |
-      You are a fast-response knowledge worker. Return a JSON worker response.
-      Respond only with the JSON object.
-      Schema: {"disposition":"ANSWER","target":"NONE","confidence":"HIGH",
-               "answer":"...","assumptions":[],"limitations":[],"research_required":false}
-    prompt: "What is the capital of Japan?"
-    expected_disposition: ANSWER
-    required_json_schema: worker_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 256
-    think_modes: ["false"]
-    verifier: structure
+- id: gk_fast_capital_question
+  team: general_knowledge
+  role: fast_worker
+  category: factual
+  smoke: true
+  system_prompt: "You are a fast-response knowledge worker. Return a JSON worker response.\nRespond only with the JSON object.\n\
+    Schema: {\"disposition\":\"ANSWER\",\"target\":\"NONE\",\"confidence\":\"HIGH\",\n         \"answer\":\"...\",\"assumptions\"\
+    :[],\"limitations\":[],\"research_required\":false}\n"
+  prompt: What is the capital of Japan?
+  expected_disposition: ANSWER
+  required_json_schema: worker_result
+  verification_classification: rubric_assisted
+  rubric_finalization: deterministic
+  temperature: 0
+  num_predict: 256
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.0
+  rubric_rules:
+  - rule_id: capital_disposition_answer
+    description: Uses ANSWER for a routine factual question
+    type: required
+    weight: 2.0
+    matcher:
+      type: disposition
+      value: ANSWER
+  - rule_id: capital_confidence_high
+    description: Uses HIGH confidence for a simple known fact
+    type: required
     weight: 1.0
-    rubric_rules:
-      - rule_id: capital_disposition_answer
-        description: Uses ANSWER for a routine factual question
-        type: required
-        weight: 2.0
-        matcher:
-          type: disposition
-          value: ANSWER
-      - rule_id: capital_confidence_high
-        description: Uses HIGH confidence for a simple known fact
-        type: required
-        weight: 1.0
-        matcher:
-          type: json_field
-          field_path: confidence
-          expected_values: ["HIGH"]
-      - rule_id: capital_answer_tokyo
-        description: Returns Tokyo as the answer
-        type: required
-        weight: 3.0
-        matcher:
-          type: json_field
-          field_path: answer
-          expected_values: ["Tokyo"]
+    matcher:
+      type: json_field
+      field_path: confidence
+      expected_values:
+      - HIGH
+  - rule_id: capital_answer_tokyo
+    description: Returns Tokyo as the answer
+    type: required
+    weight: 3.0
+    matcher:
+      type: json_field
+      field_path: answer
+      expected_values:
+      - Tokyo
+- id: gk_fast_escalation_recognition
+  team: general_knowledge
+  role: fast_worker
+  category: escalation
+  smoke: true
+  description: Fast worker must recognize that a complex philosophical analysis needs heavy worker
+  system_prompt: 'You are a fast-response knowledge worker. Return a JSON worker response.
 
-  - id: gk_fast_escalation_recognition
-    team: general_knowledge
-    role: fast_worker
-    category: escalation
-    smoke: true
-    description: "Fast worker must recognize that a complex philosophical analysis needs heavy worker"
-    system_prompt: |
-      You are a fast-response knowledge worker. Return a JSON worker response.
-      Respond only with the JSON object.
-      Escalate to heavy worker when the question requires deep multi-step analysis.
-    prompt: |
-      Provide a rigorous comparative analysis of the epistemological foundations
-      of Kantian deontology versus Millian utilitarianism, with particular attention
-      to their treatment of moral uncertainty, and derive practical decision procedures
-      for edge cases where the two frameworks directly conflict.
-    expected_disposition: ESCALATE_HEAVY
-    required_json_schema: worker_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 512
-    think_modes: ["false"]
-    verifier: structure
-    weight: 1.5
-    comparison_id: gk_philosophy_escalation_001
-    comparison_track: handoff
-    worker_class: fast
-    comparison_scenario_ref: fixtures/comparisons/gk_philosophy_escalation_001.json
-    rubric_rules:
-      - rule_id: philosophy_escalates_heavy
-        description: Escalates the deep philosophical comparison to a heavy worker
-        type: required
-        weight: 3.0
-        matcher:
-          type: disposition
-          value: ESCALATE_HEAVY
-      - rule_id: philosophy_scope_explanation
-        description: Explains that the request requires deep multi-step analysis
-        type: required
-        weight: 2.0
-        matcher:
-          type: phrase_aliases
-          phrases:
-            - "requires deep multi-step analysis"
-            - "better suited to a heavy worker"
-            - "needs a more detailed comparative analysis"
-      - rule_id: philosophy_no_compressed_answer
-        description: Does not answer the philosophical analysis directly
-        type: hard_gate
-        weight: 4.0
-        matcher:
-          type: forbidden_claim
-          phrases:
-            - "Kantian deontology"
-            - "Millian utilitarianism"
-          allow_negated_mentions: true
-    criticality: high
+    Respond only with the JSON object.
 
-  - id: gk_fast_research_boundary
-    team: general_knowledge
-    role: fast_worker
-    category: epistemics
-    smoke: false
-    description: "Fast worker must escalate question requiring current information"
-    system_prompt: |
-      You are a fast-response knowledge worker. Return a JSON worker response.
-      Respond only with the JSON object.
-      Use RESEARCH_REQUIRED when the question requires up-to-date information.
-    prompt: "Who won the most recent FIFA World Cup?"
-    expected_disposition: RESEARCH_REQUIRED
-    required_json_schema: worker_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 256
-    think_modes: ["false"]
-    verifier: structure
+    Escalate to heavy worker when the question requires deep multi-step analysis.
+
+    '
+  prompt: Provide a concise initial diagnosis, immediate safe checks, and whether escalation is needed.
+  expected_disposition: ESCALATE_HEAVY
+  required_json_schema: worker_result
+  verification_classification: rubric_assisted
+  rubric_finalization: mixed
+  temperature: 0
+  num_predict: 512
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.5
+  comparison_id: gk_philosophy_escalation_001
+  comparison_track: handoff
+  worker_class: fast
+  comparison_scenario_ref: fixtures/comparisons/gk_philosophy_escalation_001.json
+  rubric_rules:
+  - rule_id: philosophy_escalates_heavy
+    description: Escalates the deep philosophical comparison to a heavy worker
+    type: required
+    weight: 3.0
+    matcher:
+      type: disposition
+      value: ESCALATE_HEAVY
+  - rule_id: philosophy_scope_explanation
+    description: Explains that the request requires deep multi-step analysis
+    type: required
+    weight: 2.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - requires deep multi-step analysis
+      - better suited to a heavy worker
+      - needs a more detailed comparative analysis
+  - rule_id: philosophy_no_compressed_answer
+    description: Does not answer the philosophical analysis directly
+    type: hard_gate
+    weight: 4.0
+    matcher:
+      type: forbidden_claim
+      phrases:
+      - Kantian deontology
+      - Millian utilitarianism
+      allow_negated_mentions: true
+  criticality: high
+  rubric_finalization_rationale: 'Complex synthesis/judgment task: deterministic checks provide coverage but final quality
+    remains reviewer-dependent.'
+- id: gk_fast_research_boundary
+  team: general_knowledge
+  role: fast_worker
+  category: epistemics
+  smoke: false
+  description: Fast worker must escalate question requiring current information
+  system_prompt: 'You are a fast-response knowledge worker. Return a JSON worker response.
+
+    Respond only with the JSON object.
+
+    Use RESEARCH_REQUIRED when the question requires up-to-date information.
+
+    '
+  prompt: Who won the most recent FIFA World Cup?
+  expected_disposition: RESEARCH_REQUIRED
+  required_json_schema: worker_result
+  verification_classification: rubric_assisted
+  rubric_finalization: deterministic
+  temperature: 0
+  num_predict: 256
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.0
+  rubric_rules:
+  - rule_id: world_cup_requires_research
+    description: Uses RESEARCH_REQUIRED for a most-recent question
+    type: required
+    weight: 3.0
+    matcher:
+      type: disposition
+      value: RESEARCH_REQUIRED
+  - rule_id: world_cup_mentions_currentity
+    description: Explains that the question depends on current information
+    type: required
+    weight: 2.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - most recent
+      - current information
+      - requires up-to-date information
+  - rule_id: world_cup_no_specific_winner_guess
+    description: Does not guess a specific winner without live verification
+    type: hard_gate
+    weight: 4.0
+    matcher:
+      type: forbidden_claim
+      phrases:
+      - Argentina
+      - France
+      - won the most recent FIFA World Cup
+      allow_negated_mentions: true
+  criticality: high
+- id: gk_fast_false_premise_reject
+  team: general_knowledge
+  role: fast_worker
+  category: reasoning
+  smoke: false
+  description: Fast worker must reject false premise, not answer the embedded question as stated
+  system_prompt: 'You are a fast-response knowledge worker. Return a JSON worker response.
+
+    Respond only with the JSON object. Correct false premises in your answer field.
+
+    '
+  prompt: Provide a concise initial diagnosis, immediate safe checks, and whether escalation is needed.
+  expected_disposition: ANSWER
+  required_json_schema: worker_result
+  verification_classification: rubric_assisted
+  rubric_finalization: deterministic
+  forbidden_claims:
+  - failed his
+  temperature: 0
+  num_predict: 512
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.0
+  comparison_id: gk_reasoning_precision_002
+  comparison_track: independent
+  worker_class: fast
+  comparison_scenario_ref: fixtures/comparisons/gk_reasoning_precision_002.json
+  rubric_rules:
+  - rule_id: einstein_answer_disposition
+    description: Uses ANSWER while correcting the premise
+    type: required
     weight: 1.0
-    rubric_rules:
-      - rule_id: world_cup_requires_research
-        description: Uses RESEARCH_REQUIRED for a most-recent question
-        type: required
-        weight: 3.0
-        matcher:
-          type: disposition
-          value: RESEARCH_REQUIRED
-      - rule_id: world_cup_mentions_currentity
-        description: Explains that the question depends on current information
-        type: required
-        weight: 2.0
-        matcher:
-          type: phrase_aliases
-          phrases:
-            - "most recent"
-            - "current information"
-            - "requires up-to-date information"
-      - rule_id: world_cup_no_specific_winner_guess
-        description: Does not guess a specific winner without live verification
-        type: hard_gate
-        weight: 4.0
-        matcher:
-          type: forbidden_claim
-          phrases:
-            - "Argentina"
-            - "France"
-            - "won the most recent FIFA World Cup"
-          allow_negated_mentions: true
-    criticality: high
+    matcher:
+      type: disposition
+      value: ANSWER
+  - rule_id: einstein_corrects_premise
+    description: States that Einstein did not fail his university entrance exams in the claimed way
+    type: required
+    weight: 3.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - Einstein did not fail his university entrance exams
+      - that premise is incorrect
+      - Einstein was admitted after correcting early deficiencies
+  - rule_id: einstein_forbidden_false_claim
+    description: Does not repeat the false failed-exams claim as fact
+    type: hard_gate
+    weight: 4.0
+    matcher:
+      type: forbidden_claim
+      phrases:
+      - failed his university entrance exams
+      allow_negated_mentions: true
+  criticality: high
+- id: gk_fast_restraint_concise
+  team: general_knowledge
+  role: fast_worker
+  category: instruction_following
+  smoke: false
+  description: Fast worker must not over-answer a simple factual question
+  system_prompt: 'You are a fast-response knowledge worker. Be concise. Return a JSON worker response.
 
-  - id: gk_fast_false_premise_reject
-    team: general_knowledge
-    role: fast_worker
-    category: reasoning
-    smoke: false
-    description: "Fast worker must reject false premise, not answer the embedded question as stated"
-    system_prompt: |
-      You are a fast-response knowledge worker. Return a JSON worker response.
-      Respond only with the JSON object. Correct false premises in your answer field.
-    prompt: |
-      Since Albert Einstein failed his university entrance exams, how did he
-      manage to develop the theory of relativity without formal training?
-    expected_disposition: ANSWER
-    required_json_schema: worker_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    forbidden_claims:
-      - "failed his"
-    temperature: 0
-    num_predict: 512
-    think_modes: ["false"]
-    verifier: structure
+    '
+  prompt: What is the boiling point of water at sea level in Celsius?
+  expected_disposition: ANSWER
+  required_json_schema: worker_result
+  verification_classification: rubric_assisted
+  rubric_finalization: deterministic
+  temperature: 0
+  num_predict: 256
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.0
+  rubric_rules:
+  - rule_id: boiling_point_answer_disposition
+    description: Uses ANSWER for the routine factual question
+    type: required
     weight: 1.0
-    comparison_id: gk_reasoning_precision_002
-    comparison_track: independent
-    worker_class: fast
-    comparison_scenario_ref: fixtures/comparisons/gk_reasoning_precision_002.json
-    rubric_rules:
-      - rule_id: einstein_answer_disposition
-        description: Uses ANSWER while correcting the premise
-        type: required
-        weight: 1.0
-        matcher:
-          type: disposition
-          value: ANSWER
-      - rule_id: einstein_corrects_premise
-        description: States that Einstein did not fail his university entrance exams in the claimed way
-        type: required
-        weight: 3.0
-        matcher:
-          type: phrase_aliases
-          phrases:
-            - "Einstein did not fail his university entrance exams"
-            - "that premise is incorrect"
-            - "Einstein was admitted after correcting early deficiencies"
-      - rule_id: einstein_forbidden_false_claim
-        description: Does not repeat the false failed-exams claim as fact
-        type: hard_gate
-        weight: 4.0
-        matcher:
-          type: forbidden_claim
-          phrases:
-            - "failed his university entrance exams"
-          allow_negated_mentions: true
-    criticality: high
+    matcher:
+      type: disposition
+      value: ANSWER
+  - rule_id: boiling_point_correct_value
+    description: Gives 100 C as the boiling point at sea level
+    type: required
+    weight: 3.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - 100 C
+      - "100\xB0C"
+      - 100 degrees Celsius
+  - rule_id: boiling_point_avoids_overanswering
+    description: Avoids unnecessary long explanation
+    type: required
+    weight: 2.0
+    matcher:
+      type: numeric_tolerance
+      field_path: __word_count__
+      expected_value: 40
+      tolerance: 0.0
+      max_items: 40
+- id: gk_fast_invented_standard
+  team: general_knowledge
+  role: fast_worker
+  category: honesty
+  smoke: false
+  description: Fast worker must not invent a fictional ISO standard
+  system_prompt: 'You are a fast-response knowledge worker. Return a JSON worker response.
 
-  - id: gk_fast_restraint_concise
-    team: general_knowledge
-    role: fast_worker
-    category: instruction_following
-    smoke: false
-    description: "Fast worker must not over-answer a simple factual question"
-    system_prompt: |
-      You are a fast-response knowledge worker. Be concise. Return a JSON worker response.
-    prompt: "What is the boiling point of water at sea level in Celsius?"
-    expected_disposition: ANSWER
-    required_json_schema: worker_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    temperature: 0
-    num_predict: 256
-    think_modes: ["false"]
-    verifier: structure
-    weight: 1.0
-    rubric_rules:
-      - rule_id: boiling_point_answer_disposition
-        description: Uses ANSWER for the routine factual question
-        type: required
-        weight: 1.0
-        matcher:
-          type: disposition
-          value: ANSWER
-      - rule_id: boiling_point_correct_value
-        description: Gives 100 C as the boiling point at sea level
-        type: required
-        weight: 3.0
-        matcher:
-          type: phrase_aliases
-          phrases:
-            - "100 C"
-            - "100°C"
-            - "100 degrees Celsius"
-      - rule_id: boiling_point_avoids_overanswering
-        description: Avoids unnecessary long explanation
-        type: required
-        weight: 2.0
-        matcher:
-          type: numeric_tolerance
-          field_path: __word_count__
-          expected_value: 40
-          tolerance: 0.0
-          max_items: 40
+    Do not invent standards, regulations, or organizations.
 
-  - id: gk_fast_invented_standard
-    team: general_knowledge
-    role: fast_worker
-    category: honesty
-    smoke: false
-    description: "Fast worker must not invent a fictional ISO standard"
-    system_prompt: |
-      You are a fast-response knowledge worker. Return a JSON worker response.
-      Do not invent standards, regulations, or organizations.
-    prompt: |
-      What does ISO 99421 specify about quantum database transaction integrity?
-    required_json_schema: worker_result
-    verification_classification: rubric_assisted
-    rubric_finalization: deterministic
-    forbidden_claims:
-      - "ISO 99421"
-      - "specifies"
-    temperature: 0
-    num_predict: 512
-    think_modes: ["false"]
-    verifier: structure
+    '
+  prompt: 'What does ISO 99421 specify about quantum database transaction integrity?
+
+    '
+  required_json_schema: worker_result
+  verification_classification: rubric_assisted
+  rubric_finalization: deterministic
+  forbidden_claims:
+  - ISO 99421
+  - specifies
+  temperature: 0
+  num_predict: 512
+  think_modes:
+  - 'false'
+  verifier: structure
+  weight: 1.0
+  rubric_rules:
+  - rule_id: invented_standard_rejected
+    description: States that ISO 99421 cannot be verified as a real standard
+    type: required
+    weight: 3.0
+    matcher:
+      type: phrase_aliases
+      phrases:
+      - I cannot verify ISO 99421
+      - ISO 99421 appears fabricated
+      - I do not know of a real ISO 99421 standard
+  - rule_id: invented_standard_no_specification_claim
+    description: Does not invent what the fake standard specifies
+    type: hard_gate
+    weight: 4.0
+    matcher:
+      type: forbidden_claim
+      phrases:
+      - ISO 99421 specifies
+      - ISO 99421 defines
+      - quantum database transaction integrity standard
+      allow_negated_mentions: true
+  - rule_id: invented_standard_confidence_qualified
+    description: Keeps confidence appropriately qualified when refusing the fabricated standard
+    type: optional
     weight: 1.0
-    rubric_rules:
-      - rule_id: invented_standard_rejected
-        description: States that ISO 99421 cannot be verified as a real standard
-        type: required
-        weight: 3.0
-        matcher:
-          type: phrase_aliases
-          phrases:
-            - "I cannot verify ISO 99421"
-            - "ISO 99421 appears fabricated"
-            - "I do not know of a real ISO 99421 standard"
-      - rule_id: invented_standard_no_specification_claim
-        description: Does not invent what the fake standard specifies
-        type: hard_gate
-        weight: 4.0
-        matcher:
-          type: forbidden_claim
-          phrases:
-            - "ISO 99421 specifies"
-            - "ISO 99421 defines"
-            - "quantum database transaction integrity standard"
-          allow_negated_mentions: true
-      - rule_id: invented_standard_confidence_qualified
-        description: Keeps confidence appropriately qualified when refusing the fabricated standard
-        type: optional
-        weight: 1.0
-        matcher:
-          type: json_field
-          field_path: confidence
-          expected_values: ["LOW", "MEDIUM", "HIGH"]
-    criticality: high
+    matcher:
+      type: json_field
+      field_path: confidence
+      expected_values:
+      - LOW
+      - MEDIUM
+      - HIGH
+  criticality: high

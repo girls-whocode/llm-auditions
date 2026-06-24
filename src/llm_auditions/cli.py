@@ -20,6 +20,7 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from llm_auditions.configuration import Configuration, PROJECT_ROOT
+from llm_auditions.comparisons import load_comparison_scenario
 from llm_auditions.models import TaskDefinition
 from llm_auditions.ollama_client import OllamaClient
 from llm_auditions.task_loader import (
@@ -107,7 +108,13 @@ def _build_execution_plan(
     configured_digests = {m.name: (m.full_digest or m.id) for m in config.get_configured_models()}
 
     rows: list[dict[str, Any]] = []
+    handoff_groups: dict[tuple[str, str], dict[str, list[dict[str, Any]]]] = {}
     role_counts: dict[tuple[str, str], int] = {}
+
+    def _row_id(payload: dict[str, Any]) -> str:
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+
     for t in tasks:
         if profile == "smoke":
             mode = t.structured_output_mode
@@ -137,25 +144,67 @@ def _build_execution_plan(
 
         fixture_hashes = t.fixture_hashes(PROJECT_ROOT)
 
+        scenario_ref = str(t.comparison_scenario_ref or "")
+        scenario_version = ""
+        scenario_content_hash = ""
+        comparison_information_mode = ""
+        if t.comparison_id and scenario_ref:
+            scenario_info = load_comparison_scenario(PROJECT_ROOT, scenario_ref)
+            scenario_version = scenario_info["scenario_version"]
+            scenario_content_hash = scenario_info["scenario_content_hash"]
+            comparison_information_mode = scenario_info["comparison_information_mode"]
+
+        base_rows: list[dict[str, Any]] = []
         for model_name in candidates:
             for think_mode in think_modes:
-                rows.append(
-                    {
-                        "team": t.team,
-                        "role": t.role,
-                        "task_id": t.id,
-                        "task_version": t.task_version,
-                        "model": model_name,
-                        "full_model_digest": configured_digests.get(model_name, "unknown"),
-                        "requested_think_mode": think_mode,
-                        "structured_output_mode": mode,
-                        "temperature": t.temperature,
-                        "num_ctx": t.num_ctx,
-                        "num_predict": t.num_predict,
-                        "schema_hash": schema_hash,
-                        "fixture_hashes": fixture_hashes,
-                    }
-                )
+                row = {
+                    "team": t.team,
+                    "role": t.role,
+                    "task_id": t.id,
+                    "task_version": t.task_version,
+                    "model": model_name,
+                    "full_model_digest": configured_digests.get(model_name, "unknown"),
+                    "requested_think_mode": think_mode,
+                    "structured_output_mode": mode,
+                    "temperature": t.temperature,
+                    "num_ctx": t.num_ctx,
+                    "num_predict": t.num_predict,
+                    "schema_hash": schema_hash,
+                    "fixture_hashes": fixture_hashes,
+                    "comparison_id": t.comparison_id,
+                    "comparison_track": t.comparison_track,
+                    "comparison_scenario_ref": scenario_ref,
+                    "scenario_version": scenario_version,
+                    "scenario_content_hash": scenario_content_hash,
+                    "comparison_information_mode": comparison_information_mode,
+                    "fast_plan_row_id": "",
+                }
+                row["plan_row_id"] = _row_id(row)
+                base_rows.append(row)
+
+        if t.comparison_track == "handoff" and t.comparison_id and t.worker_class in ("fast", "heavy"):
+            group_key = (t.comparison_id, t.comparison_track)
+            handoff_groups.setdefault(group_key, {"fast": [], "heavy": []})
+            handoff_groups[group_key][t.worker_class].extend(base_rows)
+            continue
+
+        rows.extend(base_rows)
+
+    for (_, track), grouped in sorted(handoff_groups.items()):
+        if track != "handoff":
+            rows.extend(grouped.get("fast", []))
+            rows.extend(grouped.get("heavy", []))
+            continue
+
+        fast_rows = grouped.get("fast", [])
+        heavy_rows = grouped.get("heavy", [])
+        rows.extend(fast_rows)
+        for heavy in heavy_rows:
+            for fast in fast_rows:
+                dependent = dict(heavy)
+                dependent["fast_plan_row_id"] = fast["plan_row_id"]
+                dependent["plan_row_id"] = _row_id(dependent)
+                rows.append(dependent)
 
     metadata = {
         "profile": profile,
@@ -326,6 +375,7 @@ def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
     tasks = _load_tasks()
     task_errors = validate_tasks(tasks)
     dup = detect_duplicate_tasks(tasks)
+    task_index = {f"{t.id}@{t.team}.{t.role}": t for t in tasks}
 
     findings: dict[str, list[str]] = {
         "blocking": [],
@@ -335,7 +385,15 @@ def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
     if dup["duplicate_ids"]:
         findings["blocking"].append(f"duplicate task ids: {len(dup['duplicate_ids'])}")
     if dup["duplicate_prompts"]:
-        findings["blocking"].append(f"duplicate prompts: {len(dup['duplicate_prompts'])}")
+        non_exempt_collisions = 0
+        for collision in dup["duplicate_prompts"]:
+            refs = collision.get("task_refs", [])
+            referenced_tasks = [task_index.get(ref) for ref in refs if task_index.get(ref)]
+            if referenced_tasks and all(t.comparison_id for t in referenced_tasks):
+                continue
+            non_exempt_collisions += 1
+        if non_exempt_collisions:
+            findings["blocking"].append(f"duplicate prompts: {non_exempt_collisions}")
 
     raw_entries = _load_raw_task_entries(PROJECT_ROOT / "fixtures")
     known_fields = set(TaskDefinition.model_fields.keys())
@@ -378,10 +436,19 @@ def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
                     )
                 else:
                     try:
-                        scenario_payload = json.loads(scenario_path.read_text(encoding="utf-8"))
-                        if str(scenario_payload.get("comparison_id", "")) != str(comparison_id) or str(scenario_payload.get("track", "")) != str(comparison_track):
+                        scenario_info = load_comparison_scenario(PROJECT_ROOT, scenario_ref)
+                        scenario_payload = scenario_info["payload"]
+                        if str(scenario_payload.get("comparison_id", "")) != str(comparison_id):
                             findings["blocking"].append(
                                 f"type=comparison_scenario_fixture_mismatch comparison_id={comparison_id} track={comparison_track} task={item.get('id', '?')} ref={scenario_ref}"
+                            )
+                        if not str(scenario_payload.get("scenario", "") or "").strip() or len(str(scenario_payload.get("scenario", "") or "").split()) < 8:
+                            findings["blocking"].append(
+                                f"type=comparison_scenario_generic_or_empty comparison_id={comparison_id} track={comparison_track} task={item.get('id', '?')} ref={scenario_ref}"
+                            )
+                        if comparison_track and str(item.get("comparison_track", "")) != str(comparison_track):
+                            findings["blocking"].append(
+                                f"type=comparison_scenario_version_mismatch comparison_id={comparison_id} track={comparison_track} task={item.get('id', '?')} ref={scenario_ref}"
                             )
                     except Exception:
                         findings["blocking"].append(
@@ -398,6 +465,42 @@ def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
         refs = {str(x.get("comparison_scenario_ref", "") or "") for x in items}
         if len(refs) > 1:
             findings["blocking"].append(f"type=comparison_scenario_mismatch comparison_id={comparison_id} track={comparison_track}")
+        if comparison_track == "handoff" and "fast" not in classes:
+            findings["blocking"].append(f"type=handoff_pair_with_no_fast_candidate comparison_id={comparison_id} track={comparison_track}")
+        if comparison_track == "handoff" and "heavy" not in classes:
+            findings["blocking"].append(f"type=handoff_pair_with_no_heavy_candidate comparison_id={comparison_id} track={comparison_track}")
+
+    complex_keywords = ("architecture", "synthesis", "tradeoff", "analysis", "review", "integration", "security")
+    for _, item in raw_entries:
+        if item.get("verification_classification") != "rubric_assisted":
+            continue
+        if str(item.get("rubric_finalization", "")) != "deterministic":
+            continue
+        text = f"{item.get('id', '')} {item.get('description', '')} {item.get('role', '')}".lower()
+        is_complex = any(keyword in text for keyword in complex_keywords)
+        if is_complex and not str(item.get("rubric_finalization_rationale", "")).strip():
+            findings["warnings"].append(
+                f"type=rubric_finalization_inappropriate_for_role task={item.get('id', '?')} finalization=deterministic"
+            )
+
+    src = PROJECT_ROOT / "src" / "llm_auditions"
+    required_sources = {
+        src / "runner.py",
+        src / "ollama_client.py",
+        src / "models.py",
+        src / "scoring.py",
+        src / "reporting.py",
+        src / "task_loader.py",
+        src / "cli.py",
+        src / "configuration.py",
+        src / "versioning.py",
+        src / "packaging.py",
+    }
+    missing_source_files = [str(p.relative_to(PROJECT_ROOT)) for p in sorted(required_sources) if not p.exists()]
+    if missing_source_files:
+        findings["blocking"].append(
+            "type=execution_source_hashing_configuration_incomplete missing=" + ",".join(missing_source_files)
+        )
 
     # Audit invariant: optional rubric rules must not reduce base score when absent.
     try:
@@ -474,6 +577,8 @@ def cmd_audit_config(args: argparse.Namespace, config: Configuration) -> int:
                 findings["warnings"].append(f"team {team} role {role} candidates not installed: {missing}")
 
     for e in task_errors:
+        if e.startswith("Duplicate prompt collision"):
+            continue
         findings["blocking"].append(e)
 
     print("Config/fixture audit")
@@ -614,6 +719,7 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
         task = result.get("task", {})
         scores = result.get("scores", {})
         verifier_output = result.get("verifier_output", {})
+        prompt_components = (response.get("effective_prompt", {}) or {}).get("prompt_components", {})
 
         if "requested_think_mode" not in identity and "think_mode" in identity:
             findings.append({"severity": "error", "type": "missing_correctness_dimension", "detail": f"legacy identity think_mode in {path.name}"})
@@ -638,6 +744,14 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
         if "effective_prompt" not in response:
             findings.append({"severity": "error", "type": "missing_effective_prompt", "detail": path.name})
 
+        if task.get("comparison_id") and task.get("comparison_scenario_ref") and prompt_components.get("scenario_content_hash"):
+            try:
+                scenario_info = load_comparison_scenario(PROJECT_ROOT, str(task.get("comparison_scenario_ref")))
+                if scenario_info["scenario_content_hash"] != prompt_components.get("scenario_content_hash"):
+                    findings.append({"severity": "error", "type": "comparison_scenario_hash_mismatch", "detail": path.name})
+            except Exception:
+                findings.append({"severity": "error", "type": "comparison_scenario_hash_mismatch", "detail": path.name})
+
         if task.get("verification_classification", "rubric_assisted") == "rubric_assisted" and not verifier_output.get("rubric_rules"):
             findings.append({"severity": "error", "type": "missing_rubric_output", "detail": path.name})
 
@@ -647,6 +761,19 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
             deterministic_complete = bool(statuses) and statuses.isdisjoint({"uncertain"})
             if rubric_finalization == "deterministic" and deterministic_complete and result.get("score_status") == "provisional":
                 findings.append({"severity": "error", "type": "rubric_stuck_provisional", "detail": path.name})
+            if rubric_finalization == "mixed" and result.get("score_status") == "final":
+                findings.append({"severity": "error", "type": "mixed_result_incorrectly_final", "detail": path.name})
+
+        if task.get("comparison_track") == "handoff":
+            handoff_payload = response.get("request_payload", {}).get("handoff_payload")
+            if not handoff_payload:
+                findings.append({"severity": "error", "type": "handoff_payload_missing", "detail": path.name})
+            dependency_identity = identity.get("handoff_fast_identity_key", "")
+            dependency_hash = identity.get("handoff_fast_response_hash", "")
+            if not dependency_identity:
+                findings.append({"severity": "error", "type": "handoff_dependency_missing", "detail": path.name})
+            if not dependency_hash:
+                findings.append({"severity": "error", "type": "handoff_fast_hash_mismatch", "detail": path.name})
 
         if task.get("verification_classification") == "deterministic" and not result.get("deterministic_results"):
             findings.append({"severity": "error", "type": "missing_deterministic_output", "detail": path.name})
@@ -701,6 +828,9 @@ def cmd_audit_run(args: argparse.Namespace, config: Configuration) -> int:
             rows = list(csv.DictReader(f))
         if rows and any(not row.get("fast_model") or not row.get("heavy_model") for row in rows):
             findings.append({"severity": "error", "type": "escalation_candidate_combinations_missing", "detail": "missing fast/heavy candidate in escalation row"})
+        for row in rows:
+            if row.get("track") == "handoff" and row.get("status") == "invalid_dependency":
+                findings.append({"severity": "error", "type": "handoff_dependency_missing", "detail": "invalid dependency in escalation row"})
 
     audit_json = {
         "run_id": manifest.get("run_id"),

@@ -35,5 +35,5 @@ def test_version_payload_contains_expected_keys():
 
 def test_execution_source_hashes_populated():
     hashes = execution_source_hashes(PROJECT_ROOT)
-    assert set(hashes.keys()) == {"engine", "scoring", "verifier", "report"}
+    assert set(hashes.keys()) == {"engine", "scoring", "verifier", "report", "execution", "config", "schemas"}
     assert all(len(v) == 16 for v in hashes.values())

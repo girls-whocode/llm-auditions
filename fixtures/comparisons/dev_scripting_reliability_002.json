@@ -1,6 +1,17 @@
 {
   "comparison_id": "dev_scripting_reliability_002",
-  "track": "handoff",
-  "prompt": "Escalate scripting reliability and security review tasks via handoff.",
-  "description": "Handoff comparison for development scripting reliability."
+  "scenario_version": "1",
+  "title": "Shell reliability and secure code-review handoff",
+  "scenario": "An operations repository includes a new bash automation script and a Python data-access helper under review. Previous incidents came from missing error handling and unsafe string interpolation in SQL. A fast pass should triage safety and reliability, then a heavy pass must correct defects and provide robust alternatives.",
+  "constraints": [
+    "Treat shell and SQL issues as security-relevant.",
+    "Require explicit failure handling and input validation.",
+    "Do not approve vulnerable patterns for convenience."
+  ],
+  "required_facts": [
+    "Shell scripts must validate inputs and fail safely.",
+    "SQL statements must use parameterization, not string interpolation.",
+    "Review output must clearly state reject/revise rationale."
+  ],
+  "comparison_information_mode": "symmetric"
 }

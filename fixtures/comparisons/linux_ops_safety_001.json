@@ -1,6 +1,17 @@
 {
   "comparison_id": "linux_ops_safety_001",
-  "track": "independent",
-  "prompt": "Compare Linux operations safety and diagnostic rigor.",
-  "description": "Independent comparison for Linux ops safety tasks."
+  "scenario_version": "1",
+  "title": "PostgreSQL storage-latency investigation",
+  "scenario": "A PostgreSQL server began showing sustained iowait after its data volume was migrated to a new storage array. CPU utilization remains below 35%. Database latency increased from 8 ms to 120 ms. The administrator is considering changing kernel dirty-page and scheduler settings immediately.",
+  "constraints": [
+    "Do not make destructive changes.",
+    "Separate evidence gathering from remediation.",
+    "Include rollback considerations."
+  ],
+  "required_facts": [
+    "Inspect per-device latency and queue depth.",
+    "Compare database waits with storage telemetry.",
+    "Do not recommend speculative kernel tuning before measurement."
+  ],
+  "comparison_information_mode": "symmetric"
 }

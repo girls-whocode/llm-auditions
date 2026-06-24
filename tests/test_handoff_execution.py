@@ -69,6 +69,7 @@ def test_handoff_executes_fast_before_heavy_and_injects_payload(tmp_path: Path):
     tasks = [fast, heavy]
     plan_rows = [
         {
+            "plan_row_id": "heavy-row",
             "team": heavy.team,
             "role": heavy.role,
             "task_id": heavy.id,
@@ -82,8 +83,13 @@ def test_handoff_executes_fast_before_heavy_and_injects_payload(tmp_path: Path):
             "num_predict": 512,
             "schema_hash": "",
             "fixture_hashes": {},
+            "comparison_id": "linux_handoff_001",
+            "comparison_track": "handoff",
+            "scenario_content_hash": "scenario-hash",
+            "fast_plan_row_id": "fast-row",
         },
         {
+            "plan_row_id": "fast-row",
             "team": fast.team,
             "role": fast.role,
             "task_id": fast.id,
@@ -97,6 +103,10 @@ def test_handoff_executes_fast_before_heavy_and_injects_payload(tmp_path: Path):
             "num_predict": 512,
             "schema_hash": "",
             "fixture_hashes": {},
+            "comparison_id": "linux_handoff_001",
+            "comparison_track": "handoff",
+            "scenario_content_hash": "scenario-hash",
+            "fast_plan_row_id": "",
         },
     ]
 
@@ -110,7 +120,7 @@ def test_handoff_executes_fast_before_heavy_and_injects_payload(tmp_path: Path):
     heavy_msgs = fake.calls[1]["messages"]
     heavy_text = "\n".join(m.get("content", "") for m in heavy_msgs)
     assert "fast-result-content" in heavy_text
-    assert "fast_identity_key" in heavy_text
+    assert "fast_result_identity" in heavy_text
 
     heavy_result = [r for r in out if r.task.worker_class == "heavy"][0]
     assert heavy_result.response.request_payload.get("handoff_context", {}).get("fast_response") == "fast-result-content"
@@ -132,6 +142,7 @@ def test_handoff_uses_actual_fast_output_not_placeholder(tmp_path: Path):
     tasks = [fast, heavy]
     plan_rows = [
         {
+            "plan_row_id": "fast-row",
             "team": fast.team,
             "role": fast.role,
             "task_id": fast.id,
@@ -145,8 +156,13 @@ def test_handoff_uses_actual_fast_output_not_placeholder(tmp_path: Path):
             "num_predict": 512,
             "schema_hash": "",
             "fixture_hashes": {},
+            "comparison_id": "linux_handoff_001",
+            "comparison_track": "handoff",
+            "scenario_content_hash": "scenario-hash",
+            "fast_plan_row_id": "",
         },
         {
+            "plan_row_id": "heavy-row",
             "team": heavy.team,
             "role": heavy.role,
             "task_id": heavy.id,
@@ -160,6 +176,10 @@ def test_handoff_uses_actual_fast_output_not_placeholder(tmp_path: Path):
             "num_predict": 512,
             "schema_hash": "",
             "fixture_hashes": {},
+            "comparison_id": "linux_handoff_001",
+            "comparison_track": "handoff",
+            "scenario_content_hash": "scenario-hash",
+            "fast_plan_row_id": "fast-row",
         },
     ]
 

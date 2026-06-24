@@ -1,6 +1,17 @@
 {
   "comparison_id": "gk_reasoning_precision_002",
-  "track": "independent",
-  "prompt": "Compare reasoning precision for general-knowledge correctness tasks.",
-  "description": "Independent comparison for general knowledge reasoning precision."
+  "scenario_version": "1",
+  "title": "False-premise correction and quantitative reasoning",
+  "scenario": "A knowledge assistant receives mixed tasks: correcting a false historical premise and solving a train relative-speed problem with explicit numeric reasoning. The team needs strict factual correction and mathematically precise explanation in one evaluation track.",
+  "constraints": [
+    "Correct false premises directly before proceeding.",
+    "Show intermediate reasoning for quantitative answers.",
+    "Do not preserve incorrect claims as facts."
+  ],
+  "required_facts": [
+    "False premises must be corrected explicitly.",
+    "Relative-speed calculation should be numerically consistent.",
+    "Answer quality requires both correctness and clarity."
+  ],
+  "comparison_information_mode": "symmetric"
 }

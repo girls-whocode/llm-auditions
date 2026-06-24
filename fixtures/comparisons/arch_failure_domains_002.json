@@ -1,6 +1,21 @@
 {
   "comparison_id": "arch_failure_domains_002",
-  "track": "handoff",
-  "prompt": "Analyze failure-domain design tradeoffs and escalation depth.",
-  "description": "Handoff comparison for architecture failure-domain scenarios."
+  "scenario_version": "1",
+  "title": "Three-tier failure-domain escalation",
+  "scenario": "A production web platform uses one external load balancer, four application servers in one region, and a primary PostgreSQL database with one hot standby in a second availability zone. A recent outage exposed cascading failure between app retries and database failover. Leadership requests a failure-domain analysis and safer recovery plan.",
+  "constraints": [
+    "Identify failure domains before proposing remediations.",
+    "Call out single points of failure and failover boundaries.",
+    "Avoid claiming resilience that is not evidenced by topology details."
+  ],
+  "required_facts": [
+    "Load balancer, app tier, and database tier are distinct domains.",
+    "Database primary/standby behavior must be analyzed for failover lag and split-brain risk.",
+    "Recovery guidance should include verification and rollback conditions."
+  ],
+  "comparison_information_mode": "symmetric",
+  "expected_escalation_conditions": [
+    "Cross-tier cascading failures require deeper review.",
+    "Unclear failover orchestration requires specialist escalation."
+  ]
 }

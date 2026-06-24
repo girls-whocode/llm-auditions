@@ -99,14 +99,48 @@ Comparison tasks (`comparison_id` + `comparison_track` + `worker_class`) must al
 - `comparison_scenario_ref`: path to a shared scenario JSON under `fixtures/comparisons/`
 
 Both fast and heavy tasks for the same comparison pair must reference the same scenario file.
+Scenario fixtures are authoritative and must include:
+
+- `comparison_id`
+- `scenario_version`
+- `title`
+- `scenario`
+- `constraints`
+- `required_facts`
+
+The runner computes a content-based `scenario_content_hash` from canonical scenario payloads.
+This hash is propagated into plan rows, task snapshots, run manifests, result identity,
+effective prompt artifacts, handoff payloads, and escalation reporting.
+
+Prompt construction is componentized:
+
+- shared scenario content
+- role-specific instruction
+- optional handoff fast response (handoff track only)
+- output contract
+
 `audit-config` enforces:
 
 - missing comparison scenario references
 - missing scenario files
-- scenario file mismatches (`comparison_id` or `track` mismatch)
+- scenario file mismatches (`comparison_id` mismatch)
+- generic/empty scenario payloads
 
-Handoff comparisons execute real fast-to-heavy transfer in `run_plan_rows`.
-Heavy requests include the executed fast response payload plus provenance hashes.
+Handoff comparisons execute an explicit fast-model x heavy-model dependency matrix in `run_plan_rows`.
+Each heavy request binds to exactly one planned fast dependency and records:
+
+- `fast_plan_row_id`
+- `fast_result_identity`
+- `fast_response_hash`
+- `scenario_content_hash`
+
+Resume behavior reloads completed fast artifacts from saved `.result.json` outputs.
+If dependency artifacts are missing or inconsistent, dependent heavy execution is refused.
+
+Escalation reporting rules:
+
+- handoff track: uses only recorded heavy-to-fast dependency identity (no synthetic Cartesian pairing)
+- independent track: allows Cartesian comparison only when scenario hash/version + mode/contract dimensions match
 
 Supported rubric rule types:
 
@@ -129,6 +163,17 @@ Supported matcher types:
 - `forbidden_claim`
 
 If a rubric-assisted task has no explicit rubric rules, validation and config audit fail.
+
+## Source Hashing
+
+Run manifests include `execution_source_hashes` for execution-critical inputs:
+
+- all Python files under `src/llm_auditions/`
+- verifier modules under `src/llm_auditions/verifiers/`
+- config YAML files under `config/`
+- schema JSON files under `schemas/`
+
+Resume validation refuses to continue when execution source hashes drift.
 
 ## Installation
 

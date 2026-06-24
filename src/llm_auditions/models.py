@@ -269,6 +269,7 @@ class TaskDefinition(BaseModel):
     schema_name: str = ""
     rubric_rules: list[RubricRule] = Field(default_factory=list)
     rubric_finalization: str = ""
+    rubric_finalization_rationale: str = ""
     rubric_optional_bonus_cap: float = 0.10
     comparison_id: str = ""
     comparison_track: str = ""
@@ -319,7 +320,10 @@ class TaskDefinition(BaseModel):
     def fixture_hashes(self, project_root: Path) -> dict[str, str]:
         """SHA-256 hashes of all fixture files."""
         hashes: dict[str, str] = {}
-        for fp in self.fixture_paths:
+        all_paths = list(self.fixture_paths)
+        if self.comparison_scenario_ref.strip():
+            all_paths.append(self.comparison_scenario_ref.strip())
+        for fp in all_paths:
             p = project_root / fp
             if p.exists():
                 h = hashlib.sha256(p.read_bytes()).hexdigest()[:16]
@@ -360,6 +364,7 @@ class ResultIdentity(BaseModel):
     handoff_fast_identity_key: str = ""
     handoff_fast_response_hash: str = ""
     comparison_scenario_hash: str = ""
+    scenario_content_hash: str = ""
 
     def key(self, include_effective_mode: bool = True) -> str:
         """Deterministic string key for this identity."""
@@ -385,6 +390,7 @@ class ResultIdentity(BaseModel):
             self.handoff_fast_identity_key,
             self.handoff_fast_response_hash,
             self.comparison_scenario_hash,
+            self.scenario_content_hash,
         ]
         if include_effective_mode:
             parts.append(self.effective_think_mode)
@@ -563,6 +569,7 @@ class TaskResult(BaseModel):
 
 
 class PlannedRequest(BaseModel):
+    plan_row_id: str = ""
     team: str
     role: str
     task_id: str
@@ -576,6 +583,13 @@ class PlannedRequest(BaseModel):
     num_predict: int
     schema_hash: str = ""
     fixture_hashes: dict[str, str] = Field(default_factory=dict)
+    comparison_id: str = ""
+    comparison_track: str = ""
+    comparison_scenario_ref: str = ""
+    scenario_version: str = ""
+    scenario_content_hash: str = ""
+    comparison_information_mode: str = ""
+    fast_plan_row_id: str = ""
 
 
 class TaskSnapshot(BaseModel):
@@ -588,6 +602,10 @@ class TaskSnapshot(BaseModel):
     schema_hash: str = ""
     schema_content: dict[str, Any] = Field(default_factory=dict)
     fixture_hashes: dict[str, str] = Field(default_factory=dict)
+    comparison_scenario_ref: str = ""
+    scenario_version: str = ""
+    scenario_content_hash: str = ""
+    comparison_information_mode: str = ""
     task: dict[str, Any] = Field(default_factory=dict)
 
 

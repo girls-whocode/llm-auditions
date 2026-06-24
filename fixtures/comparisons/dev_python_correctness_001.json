@@ -1,6 +1,21 @@
 {
   "comparison_id": "dev_python_correctness_001",
-  "track": "independent",
-  "prompt": "Compare coding correctness and robustness on development tasks.",
-  "description": "Independent comparison for development coding correctness."
+  "scenario_version": "1",
+  "title": "Production bugfix and concurrency correctness review",
+  "scenario": "A release candidate contains two changes: a text-processing utility and a thread-safe rate limiter used by an API gateway. Prior regressions included off-by-one failures and lock misuse under load. The team needs an initial implementation/review and a deeper pass focused on correctness, race safety, and testability.",
+  "constraints": [
+    "Do not execute code against production systems.",
+    "Prefer deterministic tests and explicit edge-case handling.",
+    "Explain residual risks when correctness cannot be proven from provided context."
+  ],
+  "required_facts": [
+    "Empty input and boundary conditions must be handled explicitly.",
+    "Thread-safety requires consistent synchronization around shared state.",
+    "Recommendations should include test cases for concurrency and negative paths."
+  ],
+  "comparison_information_mode": "symmetric",
+  "safety_requirements": [
+    "No host execution assumptions.",
+    "No irreversible filesystem or network side effects."
+  ]
 }
