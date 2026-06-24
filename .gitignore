@@ -26,8 +26,9 @@ htmlcov/
 *.tmp
 *.temp
 
-# Results (runtime output — tracked separately or archived)
-results/*/
+# Results (runtime output; keep only placeholder)
+results/**
+!results/.gitkeep
 
 # Secrets — never commit
 *.key
