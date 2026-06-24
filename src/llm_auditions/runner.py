@@ -1221,6 +1221,10 @@ class AuditionRunner:
             f"{result.task.id}__{safe_model}__"
             f"think_{result.identity.requested_think_mode}-effective_{result.identity.effective_think_mode}"
         )
+        if result.task.comparison_track == "handoff" and result.task.worker_class == "heavy":
+            dep = (result.identity.handoff_fast_identity_key or result.identity.handoff_fast_response_hash or "")[:12]
+            if dep:
+                base = f"{base}__dep_{dep}"
 
         _atomic_write(team_dir / f"{base}.request_payload.json", json.dumps(result.response.request_payload, indent=2))
         _atomic_write(team_dir / f"{base}.effective_prompt.json", json.dumps(result.response.effective_prompt, indent=2))
