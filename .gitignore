@@ -21,6 +21,11 @@ env/
 .coverage
 htmlcov/
 
+# Logs and Temp files
+*.log
+*.tmp
+*.temp
+
 # Results (runtime output — tracked separately or archived)
 results/*/
 
